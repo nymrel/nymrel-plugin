@@ -1,0 +1,17 @@
+{
+  "name": "nymrel",
+  "version": "1.2.0",
+  "description": "Use Nymrel's four production-ready hosted MCP tools from Claude.",
+  "author": {
+    "name": "Nymrel",
+    "url": "https://nymrel.com"
+  },
+  "homepage": "https://nymrel.com/scan",
+  "keywords": [
+    "nymrel",
+    "mcp",
+    "website-audit",
+    "discoverability"
+  ],
+  "mcpServers": "./.mcp.json"
+}

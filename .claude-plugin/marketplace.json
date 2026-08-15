@@ -1,0 +1,30 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "nymrel",
+  "description": "Nymrel production tools for Claude Code and Cowork.",
+  "owner": {
+    "name": "Nymrel"
+  },
+  "plugins": [
+    {
+      "name": "nymrel",
+      "source": ".",
+      "description": "Use Nymrel's four production-ready hosted MCP tools from Claude.",
+      "version": "1.2.0",
+      "author": {
+        "name": "Nymrel",
+        "url": "https://nymrel.com"
+      },
+      "category": "productivity",
+      "homepage": "https://nymrel.com/scan",
+      "keywords": [
+        "nymrel",
+        "mcp",
+        "website-audit",
+        "domains",
+        "golf",
+        "social-video"
+      ]
+    }
+  ]
+}

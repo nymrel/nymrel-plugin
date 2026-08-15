@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "nymrel": {
+      "type": "http",
+      "url": "https://mcp.nymrel.com/mcp"
+    }
+  }
+}

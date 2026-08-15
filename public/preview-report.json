@@ -1,0 +1,197 @@
+{
+  "schemaVersion": "1.0",
+  "auditId": "6e0500a2-9779-4e52-bddb-5f293eef9b1e",
+  "reportDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "target": {
+    "requestedUrl": "https://fieldnotes.example/",
+    "finalUrl": "https://fieldnotes.example/",
+    "origin": "https://fieldnotes.example/",
+    "pageTitle": "Field Notes — Practical guides for small teams"
+  },
+  "summary": {
+    "score": 72,
+    "grade": "C",
+    "verdict": "A solid base with a few clear visibility improvements.",
+    "passed": 8,
+    "attention": 4,
+    "failed": 2
+  },
+  "topPriorities": [
+    {
+      "findingId": "meta-description",
+      "title": "Search description",
+      "whyItMatters": "The page is missing a concise search-result summary.",
+      "nextStep": "Add a specific meta description that explains the page in one useful sentence.",
+      "priority": "medium"
+    },
+    {
+      "findingId": "social-preview",
+      "title": "Social preview",
+      "whyItMatters": "Shared links may inherit incomplete or unpredictable preview content.",
+      "nextStep": "Provide accurate og:title, og:description, and og:image values that match the page.",
+      "priority": "medium"
+    },
+    {
+      "findingId": "structured-data",
+      "title": "Structured data",
+      "whyItMatters": "The page has no valid JSON-LD block for machine-readable context.",
+      "nextStep": "Add the smallest accurate Schema.org JSON-LD type supported by the visible page content.",
+      "priority": "medium"
+    }
+  ],
+  "findings": [
+    {
+      "id": "secure-transport",
+      "title": "Secure transport",
+      "category": "access",
+      "status": "pass",
+      "priority": "high",
+      "plainEnglish": "Visitors and crawlers receive the page over HTTPS.",
+      "evidence": "Final protocol: HTTPS",
+      "recommendation": "Keep HTTPS redirects and certificate renewal in place."
+    },
+    {
+      "id": "page-title",
+      "title": "Page title",
+      "category": "search",
+      "status": "pass",
+      "priority": "high",
+      "plainEnglish": "The title is present and gives the page a primary label.",
+      "evidence": "Title length: 47 characters",
+      "recommendation": "Keep the title unique and aligned with the page's main intent."
+    },
+    {
+      "id": "meta-description",
+      "title": "Search description",
+      "category": "search",
+      "status": "fail",
+      "priority": "medium",
+      "plainEnglish": "The page is missing a concise search-result summary.",
+      "evidence": "No meta description found",
+      "recommendation": "Add a specific meta description that explains the page in one useful sentence."
+    },
+    {
+      "id": "primary-heading",
+      "title": "Primary heading",
+      "category": "structure",
+      "status": "pass",
+      "priority": "high",
+      "plainEnglish": "The page has one clear primary heading.",
+      "evidence": "H1 elements found: 1",
+      "recommendation": "Keep supporting sections under logical H2/H3 headings."
+    },
+    {
+      "id": "canonical-url",
+      "title": "Canonical URL",
+      "category": "search",
+      "status": "pass",
+      "priority": "medium",
+      "plainEnglish": "The page declares which URL should represent this content.",
+      "evidence": "Canonical link is present",
+      "recommendation": "Keep the canonical absolute and aligned with the public production URL."
+    },
+    {
+      "id": "indexability",
+      "title": "Indexing directive",
+      "category": "search",
+      "status": "pass",
+      "priority": "high",
+      "plainEnglish": "No page-level noindex directive was found.",
+      "evidence": "No restrictive robots meta found",
+      "recommendation": "Confirm production headers do not add a conflicting X-Robots-Tag."
+    },
+    {
+      "id": "structured-data",
+      "title": "Structured data",
+      "category": "ai-readability",
+      "status": "attention",
+      "priority": "medium",
+      "plainEnglish": "The page has no valid JSON-LD block for machine-readable context.",
+      "evidence": "JSON-LD blocks: 0; valid: 0",
+      "recommendation": "Add the smallest accurate Schema.org JSON-LD type supported by the visible page content."
+    },
+    {
+      "id": "social-preview",
+      "title": "Social preview",
+      "category": "sharing",
+      "status": "fail",
+      "priority": "medium",
+      "plainEnglish": "Shared links may inherit incomplete or unpredictable preview content.",
+      "evidence": "Open Graph title: false; description: false; image: false",
+      "recommendation": "Provide accurate og:title, og:description, and og:image values that match the page."
+    },
+    {
+      "id": "image-alternatives",
+      "title": "Image text alternatives",
+      "category": "access",
+      "status": "pass",
+      "priority": "medium",
+      "plainEnglish": "Nearly every image declares alternative text, including empty alt for decorative images.",
+      "evidence": "Images with an alt attribute: 6 of 6",
+      "recommendation": "Keep meaningful alt text specific and decorative alt text empty."
+    },
+    {
+      "id": "mobile-viewport",
+      "title": "Mobile viewport",
+      "category": "access",
+      "status": "pass",
+      "priority": "medium",
+      "plainEnglish": "The page declares a mobile viewport for responsive rendering.",
+      "evidence": "Viewport meta is present",
+      "recommendation": "Keep responsive layouts tested at 375px and 390px."
+    },
+    {
+      "id": "page-language",
+      "title": "Page language",
+      "category": "access",
+      "status": "pass",
+      "priority": "low",
+      "plainEnglish": "The page declares a language for browsers and assistive technology.",
+      "evidence": "HTML lang: en",
+      "recommendation": "Keep the language code aligned with the visible content."
+    },
+    {
+      "id": "robots-file",
+      "title": "Robots file",
+      "category": "search",
+      "status": "pass",
+      "priority": "low",
+      "plainEnglish": "A conventional robots.txt file is reachable.",
+      "evidence": "robots.txt returned HTTP 200",
+      "recommendation": "Review it before launches so important public pages remain crawlable."
+    },
+    {
+      "id": "sitemap-file",
+      "title": "XML sitemap",
+      "category": "search",
+      "status": "attention",
+      "priority": "medium",
+      "plainEnglish": "No reachable sitemap.xml was found at the conventional location.",
+      "evidence": "sitemap.xml was absent or unreachable",
+      "recommendation": "Publish an XML sitemap or reference its real location from robots.txt."
+    },
+    {
+      "id": "llms-file",
+      "title": "AI guidance file",
+      "category": "ai-readability",
+      "status": "attention",
+      "priority": "low",
+      "plainEnglish": "No llms.txt file was found; this is optional, not a ranking requirement.",
+      "evidence": "llms.txt was absent or unreachable",
+      "recommendation": "Consider llms.txt only after canonical pages, metadata, and structured data are accurate."
+    }
+  ],
+  "technical": {
+    "httpStatus": 200,
+    "responseTimeMs": 438,
+    "fetchedAt": "2026-08-14T22:00:00.000Z",
+    "contentBytes": 48321,
+    "checkedUrls": [
+      "https://fieldnotes.example/",
+      "https://fieldnotes.example/robots.txt",
+      "https://fieldnotes.example/sitemap.xml",
+      "https://fieldnotes.example/llms.txt"
+    ]
+  },
+  "disclaimer": "Automated point-in-time technical audit of one public page and conventional discovery files. It is not a legal, accessibility, security, ranking, or compliance certification."
+}

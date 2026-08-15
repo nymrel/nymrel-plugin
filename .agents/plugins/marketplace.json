@@ -1,0 +1,20 @@
+{
+  "name": "nymrel",
+  "interface": {
+    "displayName": "Nymrel"
+  },
+  "plugins": [
+    {
+      "name": "nymrel",
+      "source": {
+        "source": "local",
+        "path": "."
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "NONE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

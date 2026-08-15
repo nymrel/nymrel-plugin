@@ -1,0 +1,40 @@
+{
+  "name": "nymrel",
+  "version": "1.2.0",
+  "description": "Use Nymrel's production website, domain, golf, and social tools from ChatGPT, Codex, or another MCP host.",
+  "author": {
+    "name": "Nymrel",
+    "url": "https://nymrel.com"
+  },
+  "homepage": "https://nymrel.com/scan",
+  "keywords": [
+    "website-audit",
+    "seo",
+    "ai-discoverability",
+    "nymrel"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "apps": "./.app.json",
+  "interface": {
+    "displayName": "Nymrel",
+    "shortDescription": "Use Nymrel's live tools from your AI workspace.",
+    "longDescription": "Nymrel connects ChatGPT, Codex, and Claude to one hosted MCP service for public website audits and a small set of focused studio tools. Each tool states its evidence and limitations in its result.",
+    "developerName": "Nymrel",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Remote MCP",
+      "Read-only tools"
+    ],
+    "websiteURL": "https://nymrel.com/scan",
+    "privacyPolicyURL": "https://nymrel.com/privacy",
+    "termsOfServiceURL": "https://nymrel.com/terms",
+    "brandColor": "#A8541F",
+    "defaultPrompt": [
+      "Audit my website and explain the top fixes.",
+      "Check this public page for AI readability.",
+      "Return a developer-friendly website audit."
+    ]
+  }
+}

@@ -1,0 +1,956 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nymrel Website Audit</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --cream: #faf8f2;
+        --paper: #f4f0e6;
+        --cedar: #2a332e;
+        --cedar-soft: #58615c;
+        --terracotta: #a8541f;
+        --terracotta-soft: #ead5c7;
+        --line: rgba(42, 51, 46, 0.16);
+        --pass: #42654f;
+        --attention: #9a6829;
+        --fail: #a4422b;
+        --shadow: 0 24px 70px rgba(42, 51, 46, 0.12);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--cedar);
+        background: transparent;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        padding: 10px;
+        background: transparent;
+      }
+
+      button,
+      summary {
+        font: inherit;
+      }
+
+      button {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .audit-shell {
+        position: relative;
+        width: min(100%, 780px);
+        margin: 0 auto;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background:
+          linear-gradient(115deg, rgba(255, 255, 255, 0.38), transparent 42%),
+          var(--cream);
+        box-shadow: var(--shadow);
+        animation: report-enter 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .audit-shell::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto;
+        height: 4px;
+        background: var(--terracotta);
+      }
+
+      .masthead {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 24px;
+        align-items: start;
+        padding: 28px 30px 24px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brandline {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 24px;
+      }
+
+      .brandmark {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        border-radius: 9px;
+        background: var(--cedar);
+        color: var(--cream);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .brandname {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 19px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .report-type {
+        color: var(--terracotta);
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        max-width: 560px;
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(28px, 5vw, 46px);
+        font-weight: 500;
+        letter-spacing: -0.045em;
+        line-height: 0.98;
+      }
+
+      .target {
+        max-width: 510px;
+        margin: 14px 0 0;
+        overflow: hidden;
+        color: var(--cedar-soft);
+        font-size: 13px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .verdict {
+        max-width: 550px;
+        margin: 16px 0 0;
+        color: var(--cedar-soft);
+        font-size: 15px;
+        line-height: 1.55;
+      }
+
+      .score {
+        --score: 0;
+        position: relative;
+        display: grid;
+        width: 126px;
+        height: 126px;
+        flex: none;
+        place-items: center;
+        border-radius: 50%;
+        background: conic-gradient(var(--terracotta) calc(var(--score) * 1%), var(--terracotta-soft) 0);
+        animation: score-reveal 900ms 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .score::after {
+        content: "";
+        position: absolute;
+        inset: 8px;
+        border-radius: inherit;
+        background: var(--cream);
+      }
+
+      .score-inner {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        text-align: center;
+      }
+
+      .grade {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 42px;
+        line-height: 0.9;
+      }
+
+      .score-value {
+        margin-top: 8px;
+        color: var(--cedar-soft);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .count-strip {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border-bottom: 1px solid var(--line);
+        background: var(--paper);
+      }
+
+      .count {
+        padding: 18px 22px;
+      }
+
+      .count + .count {
+        border-left: 1px solid var(--line);
+      }
+
+      .count-value {
+        display: block;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 25px;
+        line-height: 1;
+      }
+
+      .count-label {
+        display: block;
+        margin-top: 6px;
+        color: var(--cedar-soft);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      section {
+        padding: 28px 30px;
+      }
+
+      section + section {
+        border-top: 1px solid var(--line);
+      }
+
+      .section-kicker {
+        margin: 0 0 8px;
+        color: var(--terracotta);
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 25px;
+        font-weight: 500;
+        letter-spacing: -0.025em;
+      }
+
+      .priority-list {
+        margin: 24px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .priority-item {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 15px;
+        padding: 18px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .priority-index {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--terracotta);
+        color: white;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 15px;
+      }
+
+      .priority-title {
+        margin: 1px 0 0;
+        font-size: 15px;
+        font-weight: 750;
+      }
+
+      .priority-copy,
+      .priority-step {
+        margin: 7px 0 0;
+        color: var(--cedar-soft);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .priority-step strong {
+        color: var(--cedar);
+      }
+
+      .findings-head {
+        display: flex;
+        gap: 18px;
+        align-items: end;
+        justify-content: space-between;
+      }
+
+      .filters {
+        display: flex;
+        gap: 4px;
+        padding: 4px;
+        border-radius: 999px;
+        background: var(--paper);
+      }
+
+      .filter {
+        min-height: 38px;
+        padding: 8px 13px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--cedar-soft);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .filter[aria-pressed="true"] {
+        background: var(--cedar);
+        color: var(--cream);
+      }
+
+      .filter:focus-visible,
+      .follow-up:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid rgba(168, 84, 31, 0.28);
+        outline-offset: 2px;
+      }
+
+      .finding-list {
+        margin-top: 20px;
+      }
+
+      .finding {
+        border-top: 1px solid var(--line);
+      }
+
+      .finding[hidden] {
+        display: none;
+      }
+
+      summary {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 12px;
+        min-height: 58px;
+        align-items: center;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .status-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--cedar-soft);
+      }
+
+      .finding[data-status="pass"] .status-dot {
+        background: var(--pass);
+      }
+
+      .finding[data-status="attention"] .status-dot {
+        background: var(--attention);
+      }
+
+      .finding[data-status="fail"] .status-dot {
+        background: var(--fail);
+      }
+
+      .finding-title {
+        font-size: 14px;
+        font-weight: 720;
+      }
+
+      .status-label {
+        color: var(--cedar-soft);
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+
+      .chevron {
+        width: 8px;
+        height: 8px;
+        margin-left: 2px;
+        border-right: 1.5px solid var(--cedar-soft);
+        border-bottom: 1.5px solid var(--cedar-soft);
+        transform: rotate(45deg);
+        transition: transform 180ms ease;
+      }
+
+      details[open] .chevron {
+        transform: rotate(225deg);
+      }
+
+      .finding-body {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        padding: 0 0 20px 21px;
+        animation: detail-open 180ms ease both;
+      }
+
+      .finding-copy {
+        margin: 0;
+        color: var(--cedar-soft);
+        font-size: 13px;
+        line-height: 1.52;
+      }
+
+      .finding-copy strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--cedar);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .empty-filter {
+        margin: 22px 0 0;
+        color: var(--cedar-soft);
+        font-size: 13px;
+      }
+
+      .follow-up-row {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .follow-up-copy {
+        max-width: 440px;
+      }
+
+      .follow-up-copy p {
+        margin: 8px 0 0;
+        color: var(--cedar-soft);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .follow-up {
+        min-height: 46px;
+        flex: none;
+        padding: 11px 17px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--terracotta);
+        color: white;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 750;
+        transition: transform 160ms ease, background 160ms ease;
+      }
+
+      .follow-up:hover {
+        background: #8d4519;
+        transform: translateY(-1px);
+      }
+
+      .follow-up:disabled {
+        cursor: wait;
+        opacity: 0.7;
+        transform: none;
+      }
+
+      .action-note {
+        min-height: 18px;
+        margin: 10px 0 0;
+        color: var(--cedar-soft);
+        font-size: 11px;
+      }
+
+      .method {
+        padding-top: 20px;
+        padding-bottom: 22px;
+        background: var(--paper);
+      }
+
+      .method p {
+        margin: 0;
+        color: var(--cedar-soft);
+        font-size: 11px;
+        line-height: 1.55;
+      }
+
+      .method-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        margin-top: 8px;
+        color: var(--cedar-soft);
+        font-size: 10px;
+      }
+
+      .loading {
+        display: grid;
+        min-height: 320px;
+        place-items: center;
+        padding: 32px;
+        color: var(--cedar-soft);
+        text-align: center;
+      }
+
+      .loading-mark {
+        display: grid;
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 16px;
+        place-items: center;
+        border-radius: 15px;
+        background: var(--cedar);
+        color: var(--cream);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 24px;
+      }
+
+      @keyframes report-enter {
+        from {
+          opacity: 0;
+          transform: translateY(10px) scale(0.992);
+        }
+      }
+
+      @keyframes score-reveal {
+        from {
+          opacity: 0;
+          transform: rotate(-14deg) scale(0.86);
+        }
+      }
+
+      @keyframes detail-open {
+        from {
+          opacity: 0;
+          transform: translateY(-4px);
+        }
+      }
+
+      @media (max-width: 600px) {
+        body {
+          padding: 6px;
+        }
+
+        .audit-shell {
+          border-radius: 20px;
+        }
+
+        .masthead {
+          grid-template-columns: 1fr;
+          gap: 20px;
+          padding: 24px 20px 22px;
+        }
+
+        .brandline {
+          margin-bottom: 20px;
+        }
+
+        h1 {
+          font-size: 34px;
+        }
+
+        .score {
+          width: 104px;
+          height: 104px;
+        }
+
+        .grade {
+          font-size: 35px;
+        }
+
+        .count {
+          padding: 15px 12px;
+        }
+
+        section {
+          padding: 24px 20px;
+        }
+
+        .findings-head,
+        .follow-up-row {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .filters {
+          width: 100%;
+        }
+
+        .filter {
+          min-height: 44px;
+          flex: 1;
+          padding-inline: 8px;
+        }
+
+        .finding-body {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+
+        .follow-up {
+          width: 100%;
+          min-height: 48px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 1ms !important;
+          animation-iteration-count: 1 !important;
+          scroll-behavior: auto !important;
+          transition-duration: 1ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app" aria-live="polite">
+      <div class="audit-shell loading">
+        <div>
+          <div class="loading-mark" aria-hidden="true">N</div>
+          <strong>Preparing your Nymrel report</strong>
+        </div>
+      </div>
+    </main>
+
+    <script type="module">
+      const app = document.querySelector("#app");
+      let currentReport = null;
+      let currentFilter = window.openai?.widgetState?.filter ?? "all";
+      let rpcId = 0;
+      const pendingRequests = new Map();
+      const inHost = window.parent !== window;
+
+      const text = (value, fallback = "") =>
+        typeof value === "string" ? value : fallback;
+      const number = (value, fallback = 0) =>
+        Number.isFinite(Number(value)) ? Number(value) : fallback;
+
+      const element = (tag, className, content) => {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (content !== undefined) node.textContent = String(content);
+        return node;
+      };
+
+      const normalizeReport = (value) => {
+        if (!value || typeof value !== "object") return null;
+        if (!value.summary || !value.target || !Array.isArray(value.findings)) return null;
+        return {
+          ...value,
+          target: {
+            ...value.target,
+            finalUrl: text(value.target.finalUrl, "Public webpage"),
+            pageTitle: text(value.target.pageTitle, "Website audit"),
+          },
+          summary: {
+            score: Math.min(100, Math.max(0, number(value.summary.score))),
+            grade: text(value.summary.grade, "—"),
+            verdict: text(value.summary.verdict, "Audit complete."),
+            passed: Math.max(0, number(value.summary.passed)),
+            attention: Math.max(0, number(value.summary.attention)),
+            failed: Math.max(0, number(value.summary.failed)),
+          },
+          findings: value.findings.filter((item) => item && typeof item === "object"),
+          topPriorities: Array.isArray(value.topPriorities)
+            ? value.topPriorities.slice(0, 3)
+            : [],
+          technical: value.technical && typeof value.technical === "object" ? value.technical : {},
+          disclaimer: text(value.disclaimer, "Automated point-in-time technical audit."),
+        };
+      };
+
+      const rpcNotify = (method, params) => {
+        window.parent.postMessage({ jsonrpc: "2.0", method, params }, "*");
+      };
+
+      const rpcRequest = (method, params) =>
+        new Promise((resolve, reject) => {
+          const id = ++rpcId;
+          pendingRequests.set(id, { resolve, reject });
+          window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
+          window.setTimeout(() => {
+            const pending = pendingRequests.get(id);
+            if (!pending) return;
+            pendingRequests.delete(id);
+            pending.reject(new Error(`${method} timed out`));
+          }, 8000);
+        });
+
+      const renderPriorities = (report) => {
+        const list = element("ol", "priority-list");
+        const priorities = report.topPriorities;
+        if (!priorities.length) {
+          const item = element("li", "priority-item");
+          item.append(element("span", "priority-index", "✓"));
+          const body = element("div");
+          body.append(element("p", "priority-title", "No urgent fixes surfaced"));
+          body.append(element("p", "priority-copy", "Keep the page accurate and recheck after material changes."));
+          item.append(body);
+          list.append(item);
+          return list;
+        }
+
+        priorities.forEach((priority, index) => {
+          const item = element("li", "priority-item");
+          item.append(element("span", "priority-index", index + 1));
+          const body = element("div");
+          body.append(element("p", "priority-title", text(priority.title, "Priority")));
+          body.append(element("p", "priority-copy", text(priority.whyItMatters)));
+          const step = element("p", "priority-step");
+          const lead = element("strong", "", "Next: ");
+          step.append(lead, document.createTextNode(text(priority.nextStep)));
+          body.append(step);
+          item.append(body);
+          list.append(item);
+        });
+        return list;
+      };
+
+      const createFinding = (item) => {
+        const status = ["pass", "attention", "fail"].includes(item.status)
+          ? item.status
+          : "attention";
+        const details = element("details", "finding");
+        details.dataset.status = status;
+        details.dataset.id = text(item.id);
+        const summary = element("summary");
+        summary.append(element("span", "status-dot"));
+        summary.append(element("span", "finding-title", text(item.title, "Website check")));
+        const meta = element("span", "status-label");
+        meta.append(document.createTextNode(status === "attention" ? "Review" : status));
+        meta.append(element("span", "chevron"));
+        summary.append(meta);
+        details.append(summary);
+
+        const body = element("div", "finding-body");
+        const evidence = element("p", "finding-copy");
+        evidence.append(element("strong", "", "Observed"));
+        evidence.append(document.createTextNode(text(item.evidence, text(item.plainEnglish))));
+        const recommendation = element("p", "finding-copy");
+        recommendation.append(element("strong", "", "Recommended"));
+        recommendation.append(document.createTextNode(text(item.recommendation)));
+        body.append(evidence, recommendation);
+        details.append(body);
+        return details;
+      };
+
+      const applyFilter = () => {
+        const findings = [...document.querySelectorAll(".finding")];
+        let visible = 0;
+        findings.forEach((node) => {
+          const show =
+            currentFilter === "all" ||
+            (currentFilter === "needs-work" && node.dataset.status !== "pass") ||
+            (currentFilter === "passed" && node.dataset.status === "pass");
+          node.hidden = !show;
+          if (show) visible += 1;
+        });
+        document.querySelectorAll(".filter").forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.filter === currentFilter));
+        });
+        const empty = document.querySelector(".empty-filter");
+        if (empty) empty.hidden = visible > 0;
+        window.openai?.setWidgetState?.({ filter: currentFilter });
+      };
+
+      const sendFollowUp = async (button, note) => {
+        if (!currentReport) return;
+        const names = currentReport.topPriorities.map((item) => text(item.title)).filter(Boolean);
+        const prompt = names.length
+          ? `Explain my Nymrel Website Audit priorities in plain English and give me an ordered implementation plan: ${names.join(", ")}.`
+          : "Explain my Nymrel Website Audit result and suggest what I should verify next.";
+        button.disabled = true;
+        note.textContent = "Sending the audit back to the conversation...";
+        try {
+          if (inHost) {
+            await rpcRequest("ui/message", {
+              role: "user",
+              content: [{ type: "text", text: prompt }],
+            });
+          } else if (window.openai?.sendFollowUpMessage) {
+            await window.openai.sendFollowUpMessage({ prompt, scrollToBottom: true });
+          } else {
+            note.textContent = "In ChatGPT, this continues with a plain-language fix plan.";
+            return;
+          }
+          note.textContent = "Added to the conversation.";
+        } catch (error) {
+          if (window.openai?.sendFollowUpMessage) {
+            try {
+              await window.openai.sendFollowUpMessage({ prompt, scrollToBottom: true });
+              note.textContent = "Added to the conversation.";
+              return;
+            } catch {}
+          }
+          note.textContent = "Ask ChatGPT to explain the top priorities shown above.";
+        } finally {
+          button.disabled = false;
+        }
+      };
+
+      const render = (candidate) => {
+        const report = normalizeReport(candidate);
+        if (!report) return;
+        currentReport = report;
+
+        const shell = element("article", "audit-shell");
+        shell.setAttribute("aria-label", "Nymrel Website Audit report");
+
+        const masthead = element("header", "masthead");
+        const heading = element("div");
+        const brandline = element("div", "brandline");
+        brandline.append(element("span", "brandmark", "N"));
+        brandline.append(element("span", "brandname", "Nymrel"));
+        brandline.append(element("span", "report-type", "Website audit"));
+        heading.append(brandline);
+        heading.append(element("h1", "", report.target.pageTitle || "Website audit"));
+        const target = element("p", "target", report.target.finalUrl);
+        target.title = report.target.finalUrl;
+        heading.append(target);
+        heading.append(element("p", "verdict", report.summary.verdict));
+
+        const score = element("div", "score");
+        score.style.setProperty("--score", String(report.summary.score));
+        score.setAttribute("aria-label", `Grade ${report.summary.grade}, score ${report.summary.score} out of 100`);
+        const scoreInner = element("div", "score-inner");
+        scoreInner.append(element("span", "grade", report.summary.grade));
+        scoreInner.append(element("span", "score-value", `${report.summary.score} / 100`));
+        score.append(scoreInner);
+        masthead.append(heading, score);
+        shell.append(masthead);
+
+        const counts = element("div", "count-strip");
+        [
+          [report.summary.passed, "Passed"],
+          [report.summary.attention, "Review"],
+          [report.summary.failed, "Failed"],
+        ].forEach(([value, label]) => {
+          const count = element("div", "count");
+          count.append(element("span", "count-value", value));
+          count.append(element("span", "count-label", label));
+          counts.append(count);
+        });
+        shell.append(counts);
+
+        const priorities = element("section");
+        priorities.append(element("p", "section-kicker", "Start here"));
+        priorities.append(element("h2", "", "Your clearest next moves"));
+        priorities.append(renderPriorities(report));
+        shell.append(priorities);
+
+        const findings = element("section");
+        const findingsHead = element("div", "findings-head");
+        const findingsTitle = element("div");
+        findingsTitle.append(element("p", "section-kicker", "The evidence"));
+        findingsTitle.append(element("h2", "", "All checks"));
+        const filters = element("div", "filters");
+        filters.setAttribute("role", "group");
+        filters.setAttribute("aria-label", "Filter audit findings");
+        [
+          ["all", "All"],
+          ["needs-work", "Needs work"],
+          ["passed", "Passed"],
+        ].forEach(([value, label]) => {
+          const button = element("button", "filter", label);
+          button.type = "button";
+          button.dataset.filter = value;
+          button.setAttribute("aria-pressed", String(currentFilter === value));
+          button.addEventListener("click", () => {
+            currentFilter = value;
+            applyFilter();
+          });
+          filters.append(button);
+        });
+        findingsHead.append(findingsTitle, filters);
+        findings.append(findingsHead);
+        const list = element("div", "finding-list");
+        report.findings.forEach((item) => list.append(createFinding(item)));
+        const empty = element("p", "empty-filter", "No checks match this filter.");
+        empty.hidden = true;
+        findings.append(list, empty);
+        shell.append(findings);
+
+        const followUp = element("section");
+        const followUpRow = element("div", "follow-up-row");
+        const followUpCopy = element("div", "follow-up-copy");
+        followUpCopy.append(element("p", "section-kicker", "Keep going"));
+        followUpCopy.append(element("h2", "", "Turn the report into a plan"));
+        followUpCopy.append(element("p", "", "Nymrel can explain the priorities at your technical level and order the work."));
+        const button = element("button", "follow-up", "Explain my top fixes");
+        button.type = "button";
+        const note = element("p", "action-note");
+        button.addEventListener("click", () => void sendFollowUp(button, note));
+        followUpRow.append(followUpCopy, button);
+        followUp.append(followUpRow, note);
+        shell.append(followUp);
+
+        const method = element("section", "method");
+        method.append(element("p", "", report.disclaimer));
+        const meta = element("div", "method-meta");
+        meta.append(element("span", "", `HTTP ${number(report.technical.httpStatus, 0)}`));
+        meta.append(element("span", "", `${number(report.technical.responseTimeMs, 0)} ms page response`));
+        meta.append(element("span", "", `${report.findings.length} checks`));
+        method.append(meta);
+        shell.append(method);
+
+        app.replaceChildren(shell);
+        applyFilter();
+      };
+
+      window.addEventListener(
+        "message",
+        (event) => {
+          if (event.source !== window.parent) return;
+          const message = event.data;
+          if (!message || message.jsonrpc !== "2.0") return;
+          if (typeof message.id === "number") {
+            const pending = pendingRequests.get(message.id);
+            if (!pending) return;
+            pendingRequests.delete(message.id);
+            if (message.error) pending.reject(message.error);
+            else pending.resolve(message.result);
+            return;
+          }
+          if (message.method === "ui/notifications/tool-result") {
+            render(message.params?.structuredContent);
+          }
+        },
+        { passive: true },
+      );
+
+      const preview = window.__NYMREL_PREVIEW__;
+      const compatibilityOutput = window.openai?.toolOutput;
+      if (preview) render(preview);
+      else if (compatibilityOutput) render(compatibilityOutput);
+
+      if (inHost) {
+        rpcRequest("ui/initialize", {
+          appInfo: { name: "nymrel-website-audit-widget", version: "1.2.0" },
+          appCapabilities: {},
+          protocolVersion: "2026-01-26",
+        })
+          .then(() => rpcNotify("ui/notifications/initialized", {}))
+          .catch((error) => console.error("Nymrel widget bridge initialization failed", error));
+      }
+    </script>
+  </body>
+</html>
