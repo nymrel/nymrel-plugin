@@ -53,9 +53,16 @@ only a probe of served bytes can.
 ## What actually deploys this: a push to `main` (verified 2026-08-18)
 
 The Vercel project has the GitHub integration wired (`githubDeployment: 1`,
-`gitRootDirectory: hosted-mcp`). Pushing `main` to `nymrel/nymrel-plugin`
-builds and promotes to production on its own. Production is currently
-`dpl_5DPVFTkjiehAGfSCjdu1CSKVidps` at `63dba83`, the tip.
+`gitRootDirectory: hosted-mcp`). Pushing `main` to `nymrel/nymrel-plugin` is
+what builds and promotes to production - every READY deployment in the history
+came from a push, none from the CLI. Production is
+`dpl_5DPVFTkjiehAGfSCjdu1CSKVidps` at `63dba83`.
+
+**A push does not always produce a build.** `51f5a67` changed only this
+markdown file and produced no deployment record at all - not BLOCKED, absent.
+Runtime changes under `hosted-mcp/` build; a docs-only push may be skipped. So
+"I pushed" is not "it deployed" in either direction, and the deployment record
+is the only thing that settles it.
 
 `npx vercel --prod` from here answers **`Error: Not authorized`** — the CLI has
 no usable token in this environment — **and still exits 0.** Two background
