@@ -198,6 +198,23 @@ async def app(scope, receive, send):
         await _send_json(send, 200 if path == "/" else 404, DISCOVERY)
         return
 
+    # In production the platform rewrites EVERY path - including "/" - to
+    # /api/index, so this handler never sees the original path and the branch
+    # above never fires for a root request. Key the discovery document on what
+    # the caller is doing instead of the path: a GET without an event-stream
+    # Accept is a person or a probe, not an MCP client opening an SSE stream.
+    # (Proven live 2026-08-17: GET / on prod answered 405 while the local test
+    # passed, because the test bypasses the rewrite.)
+    if scope.get("method") in {"GET", "HEAD"}:
+        accept = b""
+        for name, value in scope.get("headers", []):
+            if name.lower() == b"accept":
+                accept = value
+                break
+        if b"text/event-stream" not in accept:
+            await _send_json(send, 200, DISCOVERY)
+            return
+
     if scope.get("method") == "POST":
         try:
             body = await _read_body(receive)

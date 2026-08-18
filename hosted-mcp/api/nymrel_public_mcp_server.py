@@ -23,11 +23,12 @@ import math
 import os
 import re
 from collections.abc import Callable, Mapping
-from typing import Any, TypedDict
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import requests
 from fastmcp import FastMCP
+from pydantic import BaseModel, ConfigDict
 
 try:  # packaged as api/ on Vercel, imported as a module in tests
     from . import native_audit
@@ -35,22 +36,22 @@ except ImportError:  # pragma: no cover - flat import path
     import native_audit
 
 
-class _GolfClubRequired(TypedDict):
-    """The keys the golf-bag-gap upstream requires for every club."""
+class GolfClub(BaseModel):
+    """One club. ``loft_degrees`` is the only optional key the upstream allows.
+
+    A pydantic model, not a TypedDict, and not for style: the hosted runtime's
+    schema generator degraded ``typing.TypedDict`` to a bare object (proven
+    live 2026-08-17 - the docstring survived, the properties vanished), while
+    ``BaseModel`` publishes named properties on every pydantic v2 / Python
+    pairing. ``extra="forbid"`` mirrors the upstream's strict validator, so
+    the published schema and the enforcement are the same contract.
+    """
+
+    model_config = ConfigDict(extra="forbid")
 
     name: str
     carry_distance_yards: int
-
-
-class GolfClub(_GolfClubRequired, total=False):
-    """One club. ``loft_degrees`` is the only optional key the upstream allows.
-
-    Declared as a type rather than a bare dict so the published tool schema
-    names these keys. The upstream validates strictly and rejects any other
-    key, so a caller that cannot see the contract cannot guess it.
-    """
-
-    loft_degrees: float
+    loft_degrees: float | None = None
 
 
 DEFAULT_BASE_URL = "https://nymrel.com/api/v1/tools/"
@@ -510,7 +511,10 @@ def nymrel_golf_bag_gap(clubs: list[GolfClub]) -> dict[str, Any]:
     ``loft_degrees`` is optional. Pass 1 to 14 clubs with unique names. The
     upstream rejects any other key, so send only these three.
     """
-    return _call_tool("golf-bag-gap", {"clubs": [dict(club) for club in clubs]})
+    return _call_tool(
+        "golf-bag-gap",
+        {"clubs": [club.model_dump(exclude_none=True) for club in clubs]},
+    )
 
 
 @mcp.tool(annotations={"title": "Look up local permit authority", "readOnlyHint": True, "openWorldHint": True})

@@ -303,31 +303,11 @@ class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.json()["endpoint"], "https://mcp.nymrel.com/mcp")
 
 
-def opaque_input_nodes(schema: object, path: str = "$") -> list[str]:
-    """Return the paths of every object node a caller cannot fill in.
-
-    An input schema node is opaque when it admits arbitrary keys while naming
-    none: ``type: object`` with no ``properties`` and ``additionalProperties``
-    not pinned to ``false``. That is exactly what ``dict[str, Any]`` publishes,
-    and it is how nymrel_golf_bag_gap shipped uncallable: the upstream demanded
-    ``name`` + ``carry_distance_yards`` and the schema showed neither, so every
-    caller guessed and every guess was rejected. Output schemas are exempt -
-    they describe what the API returns, not what a caller must produce.
-    """
-    found: list[str] = []
-    if isinstance(schema, dict):
-        if (
-            schema.get("type") == "object"
-            and not schema.get("properties")
-            and schema.get("additionalProperties") is not False
-        ):
-            found.append(path)
-        for key, value in schema.items():
-            found.extend(opaque_input_nodes(value, f"{path}.{key}"))
-    elif isinstance(schema, list):
-        for i, value in enumerate(schema):
-            found.extend(opaque_input_nodes(value, f"{path}[{i}]"))
-    return found
+# One source of truth for the opacity rule: the live post-deploy verifier
+# (scripts/verify_live_contract.py) imports this same function, so the local
+# gate and the production check cannot drift apart. The rule's rationale and
+# the incident it encodes live in the module docstring.
+from schema_contract import opaque_input_nodes  # noqa: E402
 
 
 class SchemaContractGateTests(unittest.IsolatedAsyncioTestCase):
