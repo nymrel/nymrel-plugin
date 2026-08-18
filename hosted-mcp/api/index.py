@@ -52,9 +52,14 @@ def nymrel_find_domain(
     """Suggest domain names and check each one against public registry records.
 
     A name is only reported available when the registry clearly says it is free.
-    When the lookup is inconclusive the name comes back as available:false, so
-    read false as "not confirmed free" rather than "already taken". Confirm at a
+    When the lookup is inconclusive `availability_checked` is false and
+    `available` is false, so read that as "not confirmed free" rather than
+    "already taken" - some TLDs have no registry service to ask. Confirm at a
     registrar before buying.
+
+    `brandability_score` is an opinion about the string, not a claim about how
+    the name will perform; `brandability_factors` reports what it was computed
+    from so you can weigh it yourself.
     """
     payload: dict[str, Any] = {"keyword_or_concept": keyword_or_concept}
     if tlds is not None:
@@ -62,12 +67,18 @@ def nymrel_find_domain(
     return server._call_tool("find-domain", payload)
 
 
-@server.mcp.tool(name="nymrel_social_clip_score", annotations={"title": "Score a short-video hook", "readOnlyHint": True, "openWorldHint": False})
+@server.mcp.tool(name="nymrel_social_clip_score", annotations={"title": "Measure a short-video hook", "readOnlyHint": True, "openWorldHint": False})
 def nymrel_social_clip_score(transcript_text: str, target_platform: str = "tiktok") -> dict[str, Any]:
-    """Score a short-video hook with a text heuristic.
+    """Measure what the opening of a short-video transcript actually does.
 
-    Looks at opening length, hook phrasing, direct address, curiosity signals and
-    word count for the platform. It does not predict reach, views or virality.
+    Returns each measured signal - opening word count, whether it opens on a
+    hook pattern, whether it addresses the viewer, curiosity signals, whether
+    the total word count sits in the platform's range - plus `hook_score`, a
+    0-100 rollup of exactly those signals, and suggested edits.
+
+    Every figure describes the text the caller supplied. This does not estimate
+    reach, views, retention or virality; those are outcomes in the world that
+    this tool never observes. Read `signals` to see what moved the score.
     """
     return server._call_tool(
         "social-clip-score",

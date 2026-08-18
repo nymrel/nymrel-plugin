@@ -253,7 +253,7 @@ class ErrorTaxonomyTests(unittest.TestCase):
             requester=lambda *a, **k: FakeResponse(200, {"ok": True}),
         )
         self.assertEqual(
-            client.call("golf-bag-gap", {"clubs": [{"name": "7i", "carry_yards": 150}]}),
+            client.call("golf-bag-gap", {"clubs": [{"name": "7i", "carry_distance_yards": 150}]}),
             {"ok": True},
         )
 

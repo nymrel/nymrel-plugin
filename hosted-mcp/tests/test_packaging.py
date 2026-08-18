@@ -143,9 +143,38 @@ class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
                 with self.subTest(tool=name, phrase=phrase):
                     self.assertNotIn(phrase, text)
 
-        # and the honest qualifiers are actually present
-        self.assertIn("does not predict", described["nymrel_social_clip_score"].lower())
+        # and the honest qualifiers are actually present.
+        #
+        # The clip tool must disclaim estimating an outcome AND name the
+        # outcomes it is disclaiming - "does not predict" alone let a caller
+        # guess which outcome was meant. Either verb is accepted; naming the
+        # outcomes is not optional.
+        clip = described["nymrel_social_clip_score"].lower()
+        self.assertRegex(clip, "does not (predict|estimate)")
+        for outcome in ("reach", "views", "virality"):
+            with self.subTest(outcome=outcome):
+                self.assertIn(outcome, clip)
         self.assertIn("not confirmed free", described["nymrel_find_domain"].lower())
+
+    async def test_no_tool_promises_an_outcome_it_cannot_observe(self):
+        """Nymrel reports what it measured; it does not make calls.
+
+        A description that promises an outcome turns a measurement into a pick.
+        Anything asserting future performance is banned outright; the words that
+        name outcomes are allowed only inside an explicit disclaimer.
+        """
+        async with await self._client() as client:
+            response = await client.post("/mcp", headers=MCP_HEADERS, json=_rpc("tools/list"))
+
+        for tool in response.json()["result"]["tools"]:
+            text = (tool.get("description") or "").lower()
+            for phrase in ("will go viral", "guarantees", "guaranteed", "predicts how", "how it will perform"):
+                with self.subTest(tool=tool["name"], phrase=phrase):
+                    self.assertNotIn(phrase, text)
+            # If an outcome noun appears at all, a disclaimer must appear too.
+            if any(word in text for word in ("viral", "virality", "reach", "views")):
+                with self.subTest(tool=tool["name"]):
+                    self.assertRegex(text, "does not (predict|estimate)")
 
     async def test_tool_result_is_single_encoded(self):
         """One parse must reach the object - no JSON quoted inside JSON."""
