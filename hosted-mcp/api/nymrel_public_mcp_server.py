@@ -23,7 +23,7 @@ import math
 import os
 import re
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, TypedDict
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -33,6 +33,24 @@ try:  # packaged as api/ on Vercel, imported as a module in tests
     from . import native_audit
 except ImportError:  # pragma: no cover - flat import path
     import native_audit
+
+
+class _GolfClubRequired(TypedDict):
+    """The keys the golf-bag-gap upstream requires for every club."""
+
+    name: str
+    carry_distance_yards: int
+
+
+class GolfClub(_GolfClubRequired, total=False):
+    """One club. ``loft_degrees`` is the only optional key the upstream allows.
+
+    Declared as a type rather than a bare dict so the published tool schema
+    names these keys. The upstream validates strictly and rejects any other
+    key, so a caller that cannot see the contract cannot guess it.
+    """
+
+    loft_degrees: float
 
 
 DEFAULT_BASE_URL = "https://nymrel.com/api/v1/tools/"
@@ -455,7 +473,12 @@ def nymrel_audit_website(url: str) -> dict[str, Any]:
 
 @mcp.tool(annotations={"title": "Find domain names", "readOnlyHint": True, "openWorldHint": True})
 def nymrel_find_domain(keyword_or_concept: str, tlds: list[str] | None = None) -> dict[str, Any]:
-    """Request verified domain suggestions from Nymrel DomainPilot."""
+    """Request verified domain suggestions from Nymrel DomainPilot.
+
+    Each ``tlds`` entry must include the leading dot -- ".com", ".app" -- and at
+    most six may be passed. An entry without the dot ("com") is rejected. Omit
+    ``tlds`` entirely to search the default .com/.ai/.app/.io set.
+    """
     payload: dict[str, Any] = {"keyword_or_concept": keyword_or_concept}
     if tlds is not None:
         payload["tlds"] = tlds
@@ -480,9 +503,14 @@ def nymrel_evaluate_fantasy_trade(
 
 
 @mcp.tool(annotations={"title": "Analyse golf bag gaps", "readOnlyHint": True, "openWorldHint": True})
-def nymrel_golf_bag_gap(clubs: list[dict[str, Any]]) -> dict[str, Any]:
-    """Analyse carry-distance gaps for a structured list of golf clubs."""
-    return _call_tool("golf-bag-gap", {"clubs": clubs})
+def nymrel_golf_bag_gap(clubs: list[GolfClub]) -> dict[str, Any]:
+    """Analyse carry-distance gaps for a structured list of golf clubs.
+
+    Every club needs a ``name`` and its measured ``carry_distance_yards``;
+    ``loft_degrees`` is optional. Pass 1 to 14 clubs with unique names. The
+    upstream rejects any other key, so send only these three.
+    """
+    return _call_tool("golf-bag-gap", {"clubs": [dict(club) for club in clubs]})
 
 
 @mcp.tool(annotations={"title": "Look up local permit authority", "readOnlyHint": True, "openWorldHint": True})

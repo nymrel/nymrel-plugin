@@ -186,7 +186,7 @@ class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
             "tools/call",
             {
                 "name": "nymrel_golf_bag_gap",
-                "arguments": {"clubs": [{"name": "7i", "carry_yards": 150}]},
+                "arguments": {"clubs": [{"name": "7i", "carry_distance_yards": 150}]},
             },
         )
         real_client = server.NymrelPublicApiClient(
