@@ -303,6 +303,100 @@ class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.json()["endpoint"], "https://mcp.nymrel.com/mcp")
 
 
+def opaque_input_nodes(schema: object, path: str = "$") -> list[str]:
+    """Return the paths of every object node a caller cannot fill in.
+
+    An input schema node is opaque when it admits arbitrary keys while naming
+    none: ``type: object`` with no ``properties`` and ``additionalProperties``
+    not pinned to ``false``. That is exactly what ``dict[str, Any]`` publishes,
+    and it is how nymrel_golf_bag_gap shipped uncallable: the upstream demanded
+    ``name`` + ``carry_distance_yards`` and the schema showed neither, so every
+    caller guessed and every guess was rejected. Output schemas are exempt -
+    they describe what the API returns, not what a caller must produce.
+    """
+    found: list[str] = []
+    if isinstance(schema, dict):
+        if (
+            schema.get("type") == "object"
+            and not schema.get("properties")
+            and schema.get("additionalProperties") is not False
+        ):
+            found.append(path)
+        for key, value in schema.items():
+            found.extend(opaque_input_nodes(value, f"{path}.{key}"))
+    elif isinstance(schema, list):
+        for i, value in enumerate(schema):
+            found.extend(opaque_input_nodes(value, f"{path}[{i}]"))
+    return found
+
+
+class SchemaContractGateTests(unittest.IsolatedAsyncioTestCase):
+    """The published schema must BE the contract, not a permissive shadow of it.
+
+    Two of four tools shipped schemas that erased upstream-enforced keys
+    (2026-08-17). This gate makes that class unshippable: it walks every
+    input schema the hosted app actually publishes and fails on any node a
+    caller holding only the schema could not populate.
+    """
+
+    async def _client(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=index.app),
+            base_url="http://mcp.test",
+        )
+
+    def test_detector_flags_the_shape_that_shipped_broken(self):
+        """Mutation half: the exact pre-fix golf schema must be caught."""
+        pre_fix = {
+            "additionalProperties": False,
+            "properties": {
+                "clubs": {
+                    "items": {"additionalProperties": True, "type": "object"},
+                    "type": "array",
+                },
+            },
+            "required": ["clubs"],
+            "type": "object",
+        }
+        self.assertEqual(
+            opaque_input_nodes(pre_fix),
+            ["$.properties.clubs.items"],
+            "the detector no longer catches the schema shape that shipped broken",
+        )
+
+    def test_detector_accepts_a_named_contract(self):
+        """The other half: a schema that names its keys must pass."""
+        named = {
+            "properties": {
+                "clubs": {
+                    "items": {
+                        "properties": {"name": {"type": "string"}},
+                        "required": ["name"],
+                        "type": "object",
+                    },
+                    "type": "array",
+                },
+            },
+            "required": ["clubs"],
+            "type": "object",
+        }
+        self.assertEqual(opaque_input_nodes(named), [])
+
+    async def test_no_published_tool_has_an_opaque_input_schema(self):
+        async with await self._client() as client:
+            response = await client.post(
+                "/mcp", headers=MCP_HEADERS, json=_rpc("tools/list")
+            )
+        for tool in response.json()["result"]["tools"]:
+            with self.subTest(tool=tool["name"]):
+                self.assertEqual(
+                    opaque_input_nodes(tool["inputSchema"]),
+                    [],
+                    f"{tool['name']} publishes an input node a caller cannot "
+                    "discover; type the parameter instead of dict[str, Any]",
+                )
+
+
 class NoServerCredentialTests(unittest.TestCase):
     def test_read_path_forwards_no_authorization_header(self):
         """A public read must not carry the studio's own credential upstream."""
