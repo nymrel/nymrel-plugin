@@ -49,3 +49,48 @@ suite passed while production published a degraded schema (2026-08-17): the
 hosted runtime flattened a `typing.TypedDict` to a bare object, and the
 platform rewrite hid the discovery route. Local tests cannot see runtime skew;
 only a probe of served bytes can.
+
+## What actually deploys this: a push to `main` (verified 2026-08-18)
+
+The Vercel project has the GitHub integration wired (`githubDeployment: 1`,
+`gitRootDirectory: hosted-mcp`). Pushing `main` to `nymrel/nymrel-plugin`
+builds and promotes to production on its own. Production is currently
+`dpl_5DPVFTkjiehAGfSCjdu1CSKVidps` at `63dba83`, the tip.
+
+`npx vercel --prod` from here answers **`Error: Not authorized`** — the CLI has
+no usable token in this environment — **and still exits 0.** Two background
+deploys reported success while having deployed nothing. Never grade a deploy on
+that exit code; grade it on the live server or the deployment record.
+
+## The brand identity that ships is not the one doctrine asks for
+
+Of the last six commits, the two authored `Nymrel <contact@nymrel.com>` were
+**BLOCKED** by Vercel. The four authored `JalenTrades <johnsonjjalen@gmail.com>`
+all reached READY.
+
+| Commit | Author | Deploy |
+|---|---|---|
+| `63dba83` | JalenTrades | READY |
+| `b824cfa` | **Nymrel** | **BLOCKED** |
+| `7b11a6a` | JalenTrades | READY |
+| `62a2514` | JalenTrades | READY |
+| `2883bd2` | JalenTrades | READY |
+| `cc94a1a` | **Nymrel** | **BLOCKED** |
+
+Vercel refuses a deployment whose git author is not a team member, and
+`contact@nymrel.com` is not one. `johnsonjjalen@gmail.com` is the account.
+
+This collides with the studio brand rule, which names commit author identity as
+a Nymrel-only position. Following that rule **in this repo** produces a deploy
+that never happens: the push succeeds, git reports nothing wrong, and the change
+silently does not go live. Neither blocked commit cost us anything here — a
+later READY deploy at a descendant commit carried their content — but that was
+luck, not design.
+
+Until an operator adds `contact@nymrel.com` to the Vercel team (an account
+change, not an agent action), **leave the author identity alone in this repo.**
+There is no repo-local `user.name`/`user.email` override; the global identity is
+`JalenTrades`, which deploys. Do not set a local one to satisfy the brand gate.
+
+After any push here, confirm the deploy reached READY. A BLOCKED deploy is the
+one failure mode that looks exactly like success from the terminal.
