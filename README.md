@@ -48,7 +48,7 @@ The deployable source for `https://mcp.nymrel.com/mcp` lives in `hosted-mcp/`. T
 - Compile/unit: `npm run check` and `npm test`.
 - Runtime: `npm run build && npm run test:mcp` starts the real HTTP server, connects an MCP client, and verifies tool/resource discovery.
 - Live public fetch: `npm run test:live` audits `https://example.com`; use only when outbound network proof is wanted.
-- Host: connect the deployed HTTPS `/mcp` endpoint in ChatGPT Developer Mode, invoke `@Nymrel`, and run the prompts in `evals/review-cases.json`.
+- Host: connect the deployed HTTPS `/mcp` endpoint in ChatGPT Developer Mode, invoke `@Nymrel`, and run the prompts in `evals/review-cases.json` (six positive, four negative, one per published tool).
 
 ## Publication boundary
 

@@ -24,7 +24,12 @@
 
 ## Test cases
 
-The five positive and three negative cases required for review are in `evals/review-cases.json`.
+Six positive and four negative cases are in `evals/review-cases.json` (review
+requires at least five and three). Every case covers one of the four published
+tools, every expectation records the live response it was checked against, and
+`hosted-mcp/tests/test_review_cases.py` fails the build if a case names a tool
+this server does not publish - which is exactly how the v1.0 set shipped three
+cases expecting a `render_website_audit` tool that never existed.
 
 ## Current provider state
 
@@ -37,6 +42,6 @@ The five positive and three negative cases required for review are in `evals/rev
 ## External gates before public directory submission
 
 - Verify Nymrel publisher identity and Apps Management write access in the OpenAI Platform.
-- Add a live public support URL; `/support` currently does not exist.
-- Run the provider's tool scan, review imported annotations, execute all eight cases, and record same-version receipts.
+- Support URL is live at https://nymrel.com/support (added 2026-08-18).
+- Run the provider's tool scan, review imported annotations, execute all ten cases, and record same-version receipts.
 - Submit separately to OpenAI and Anthropic. Local installation is not directory approval.

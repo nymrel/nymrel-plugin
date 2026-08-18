@@ -20,6 +20,10 @@ from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from typing import Annotated  # noqa: E402
+
+from pydantic import Field  # noqa: E402
+
 import nymrel_public_mcp_server as server  # noqa: E402
 
 
@@ -30,6 +34,13 @@ MCP_PATH = "/mcp"
 PATH_ALIASES = frozenset({"/mcp", "/api/index", "/api/index/mcp", "/api/mcp", "/api"})
 
 MAX_BODY_BYTES = 1_048_576
+
+#: A TLD as the upstream actually accepts it: leading dot, 2-24 letters.
+#: The published schema said only "array of string" until 2026-08-18, so a model
+#: holding the schema would send ["com"] and get INVALID_REQUEST with nothing to
+#: tell it why. The pattern is the upstream's own regex, so the advertised
+#: contract and the enforced one are the same contract.
+Tld = Annotated[str, Field(pattern=r"^\.[a-z]{2,24}$", examples=[".com", ".ai", ".app", ".dev"])]
 
 _provider = getattr(server.mcp, "local_provider", server.mcp)
 
@@ -47,7 +58,18 @@ _provider.remove_tool("nymrel_submit_studio_brief")
 @server.mcp.tool(name="nymrel_find_domain", annotations={"title": "Find domain names", "readOnlyHint": True, "openWorldHint": True})
 def nymrel_find_domain(
     keyword_or_concept: str,
-    tlds: list[str] | None = None,
+    tlds: Annotated[
+        list[Tld] | None,
+        Field(
+            default=None,
+            max_length=6,
+            description=(
+                'Up to 6 TLDs, each written with its leading dot - ".com", not "com". '
+                "The upstream enforces this with a regex and rejects the request "
+                "otherwise. Defaults to .com, .ai, .app and .dev."
+            ),
+        ),
+    ] = None,
 ) -> dict[str, Any]:
     """Suggest domain names and check each one against public registry records.
 
