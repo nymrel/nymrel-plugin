@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -119,6 +120,26 @@ def main() -> int:
         bool(bad.get("isError")) and "carry_distance_yards" in bad_text,
         bad_text[:120],
     )
+
+    # 4. OAuth discovery probes answer 404. A 200 here made Claude.ai read
+    #    this authless server as a broken OAuth provider and refuse to connect
+    #    ("Couldn't register with Nymrel Tools's sign-in service", 2026-08-18).
+    #    The 404 is what tells an MCP client to proceed unauthenticated.
+    for probe in (
+        "/.well-known/oauth-protected-resource",
+        "/.well-known/oauth-authorization-server",
+        "/.well-known/openid-configuration",
+        "/register",
+    ):
+        request = urllib.request.Request(f"{base}{probe}", method="GET")
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                status = response.status
+        except urllib.error.HTTPError as exc:
+            status = exc.code
+        except Exception as exc:  # noqa: BLE001
+            status = f"error: {exc}"
+        check(f"GET {probe} answers 404", status == 404, f"got {status}")
 
     if failures:
         print(f"LIVE CONTRACT: {len(failures)} FAILURE(S)")

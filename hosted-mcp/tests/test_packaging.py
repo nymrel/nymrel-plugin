@@ -302,6 +302,61 @@ class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["endpoint"], "https://mcp.nymrel.com/mcp")
 
+    async def test_oauth_discovery_paths_answer_404_through_the_rewrite(self):
+        """An authless server must 404 OAuth discovery, not 200 it.
+
+        In production the vercel.json rewrite lands every path on /api/index
+        and forwards the original as ?__path=. Before that forwarding existed,
+        /.well-known/oauth-authorization-server answered 200 with the discovery
+        JSON, and Claude.ai read this server as a broken OAuth provider:
+        "Couldn't register with Nymrel Tools's sign-in service" (live,
+        2026-08-18). The 404 is what tells an MCP client to connect
+        unauthenticated.
+        """
+        probes = [
+            "/.well-known/oauth-protected-resource",
+            "/.well-known/oauth-protected-resource/mcp",
+            "/.well-known/oauth-authorization-server",
+            "/.well-known/openid-configuration",
+            "/register",
+        ]
+        async with await self._client() as client:
+            for probe in probes:
+                with self.subTest(probe=probe, via="rewrite"):
+                    response = await client.get(
+                        "/api/index", params={"__path": probe}
+                    )
+                    self.assertEqual(response.status_code, 404)
+                with self.subTest(probe=probe, via="direct"):
+                    response = await client.get(probe)
+                    self.assertEqual(response.status_code, 404)
+
+    async def test_rewrite_forwarded_paths_route_like_the_originals(self):
+        """__path routing must not regress the paths users actually hold.
+
+        The root stays a 200 discovery document, and every published endpoint
+        alias - /mcp from the Grok connector, /server from the catalog docs,
+        /sse from the nymrel.com/mcp setup page - keeps serving MCP.
+        """
+        async with await self._client() as client:
+            with self.subTest(path="/", via="rewrite"):
+                response = await client.get("/api/index", params={"__path": "/"})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.json()["endpoint"], "https://mcp.nymrel.com/mcp"
+                )
+            for endpoint in ("/mcp", "/server", "/sse"):
+                with self.subTest(path=endpoint, via="rewrite"):
+                    response = await client.post(
+                        "/api/index",
+                        params={"__path": endpoint},
+                        headers=MCP_HEADERS,
+                        json=_rpc("tools/list"),
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    tools = response.json()["result"]["tools"]
+                    self.assertEqual(len(tools), 4)
+
 
 # One source of truth for the opacity rule: the live post-deploy verifier
 # (scripts/verify_live_contract.py) imports this same function, so the local
