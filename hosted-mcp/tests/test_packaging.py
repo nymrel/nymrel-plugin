@@ -54,7 +54,8 @@ class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
 
         index.py removes tools and re-registers two, so annotations set on the
         canonical server alone silently vanish in production. The Claude
-        Connectors Directory rejects tools missing a title or read/write hint.
+        Connectors Directory rejects tools missing a title or any required
+        read-only, open-world, or destructive hint.
         """
         async with await self._client() as client:
             response = await client.post(
@@ -62,6 +63,12 @@ class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
             )
         tools = response.json()["result"]["tools"]
         self.assertEqual(len(tools), 4)
+        expected_open_world = {
+            "nymrel_audit_website": True,
+            "nymrel_find_domain": True,
+            "nymrel_golf_bag_gap": False,
+            "nymrel_social_clip_score": False,
+        }
         for tool in tools:
             annotations = tool.get("annotations") or {}
             self.assertTrue(
@@ -69,6 +76,21 @@ class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertIn(
                 "readOnlyHint", annotations, f"{tool['name']} has no readOnlyHint"
+            )
+            self.assertIn(
+                "openWorldHint", annotations, f"{tool['name']} has no openWorldHint"
+            )
+            self.assertIn(
+                "destructiveHint", annotations, f"{tool['name']} has no destructiveHint"
+            )
+            self.assertTrue(annotations["readOnlyHint"], f"{tool['name']} is not read-only")
+            self.assertEqual(
+                annotations["openWorldHint"],
+                expected_open_world[tool["name"]],
+                f"{tool['name']} has the wrong external-reach hint",
+            )
+            self.assertFalse(
+                annotations["destructiveHint"], f"{tool['name']} is destructive"
             )
 
     async def _client(self) -> httpx.AsyncClient:

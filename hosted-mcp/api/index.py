@@ -63,7 +63,15 @@ _provider.remove_tool("nymrel_find_domain")
 _provider.remove_tool("nymrel_submit_studio_brief")
 
 
-@server.mcp.tool(name="nymrel_find_domain", annotations={"title": "Find domain names", "readOnlyHint": True, "openWorldHint": True})
+@server.mcp.tool(
+    name="nymrel_find_domain",
+    annotations={
+        "title": "Find domain names",
+        "readOnlyHint": True,
+        "openWorldHint": True,
+        "destructiveHint": False,
+    },
+)
 def nymrel_find_domain(
     keyword_or_concept: str,
     tlds: Annotated[
@@ -97,7 +105,15 @@ def nymrel_find_domain(
     return server._call_tool("find-domain", payload)
 
 
-@server.mcp.tool(name="nymrel_social_clip_score", annotations={"title": "Measure a short-video hook", "readOnlyHint": True, "openWorldHint": False})
+@server.mcp.tool(
+    name="nymrel_social_clip_score",
+    annotations={
+        "title": "Measure a short-video hook",
+        "readOnlyHint": True,
+        "openWorldHint": False,
+        "destructiveHint": False,
+    },
+)
 def nymrel_social_clip_score(transcript_text: str, target_platform: str = "tiktok") -> dict[str, Any]:
     """Measure what the opening of a short-video transcript actually does.
 

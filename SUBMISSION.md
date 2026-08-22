@@ -11,7 +11,8 @@
 
 ## Review claims
 
-- Read-only and open-world: the server fetches the public URL and conventional files on the same public origin.
+- Read-only and non-mutating: tools fetch public data or calculate from caller-supplied inputs without changing public or third-party state.
+- External reach is explicit: website and domain discovery interact with dynamic public resources; golf-gap and clip-signal calculations stay within a closed service domain.
 - No private data: no account, login, cookie, file upload, contact field, or persistent user profile is accepted.
 - No commerce: the plugin does not initiate checkout, subscriptions, upgrades, or payment.
 - Bounded output: one page, three same-origin discovery probes, one report, and no background monitoring.
@@ -24,12 +25,11 @@
 
 ## Test cases
 
-Six positive and four negative cases are in `evals/review-cases.json` (review
-requires at least five and three). Every case covers one of the four published
-tools, every expectation records the live response it was checked against, and
-`hosted-mcp/tests/test_review_cases.py` fails the build if a case names a tool
-this server does not publish - which is exactly how the v1.0 set shipped three
-cases expecting a `render_website_audit` tool that never existed.
+The provider import file `chatgpt-app-submission.json` contains exactly five
+positive and three negative cases. The broader regression set remains in
+`evals/review-cases.json`; every expectation records the live response it was
+checked against, and `hosted-mcp/tests/test_review_cases.py` fails the build if
+a case names a tool this server does not publish.
 
 ## Current provider state
 

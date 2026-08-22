@@ -1,0 +1,128 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "Nymrel",
+    "subtitle": "Analyze sites, names, clips",
+    "description": "Nymrel audits public websites, suggests domain names with explicit availability evidence, analyzes golf-club distance gaps, and measures short-video hook signals without changing external state.",
+    "category": "PRODUCTIVITY"
+  },
+  "tools": {
+    "nymrel_audit_website": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Fetches a public page and same-origin discovery files, then returns measured findings without modifying them.",
+        "open_world_justification": "Fetches a caller-selected public website and same-origin discovery files, so its external domain is open even though it does not modify those resources.",
+        "destructive_justification": "Cannot delete, overwrite, revoke, purchase, or perform any irreversible action."
+      }
+    },
+    "nymrel_find_domain": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Generates name candidates and performs read-only availability checks without registering or reserving a domain.",
+        "open_world_justification": "Checks caller-selected domain candidates against dynamic public registry data without registering or changing any record.",
+        "destructive_justification": "Cannot purchase, transfer, overwrite, or delete a domain or account asset."
+      }
+    },
+    "nymrel_golf_bag_gap": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Computes distance gaps from the club measurements supplied in the request and stores no user record.",
+        "open_world_justification": "Does not order equipment, publish results, or change any external system.",
+        "destructive_justification": "Performs a reversible calculation and cannot delete or overwrite external data."
+      }
+    },
+    "nymrel_social_clip_score": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Measures textual hook signals in the supplied transcript without posting, editing, or persisting the clip.",
+        "open_world_justification": "Does not publish content, send messages, or change a social platform or third-party system.",
+        "destructive_justification": "Cannot remove content, overwrite an account, or perform an irreversible action."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Audit a public website and summarize the highest-priority measured fixes.",
+      "user_prompt": "@Nymrel audit https://stripe.com and tell me the three most important fixes in plain English.",
+      "file_attachment_urls": null,
+      "tools_triggered": "nymrel_audit_website",
+      "expected_output": "Returns the measured score and grade plus up to three recommendations from the tool result without inventing traffic or ranking claims.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Suggest names and distinguish checked availability from unverified candidates.",
+      "user_prompt": "@Nymrel find me a domain for a coffee cart in Seattle.",
+      "file_attachment_urls": null,
+      "tools_triggered": "nymrel_find_domain",
+      "expected_output": "Returns domain suggestions, labels availability only when it was checked, and advises confirmation with a registrar before purchase.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Exercise an availability edge case for a requested top-level domain.",
+      "user_prompt": "@Nymrel find me a .io domain for a mobile dog grooming business, and tell me whether each one was actually checked.",
+      "file_attachment_urls": null,
+      "tools_triggered": "nymrel_find_domain",
+      "expected_output": "Uses the requested .io suffix and clearly distinguishes an unchecked suggestion from a confirmed available domain.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Analyze measured carry-distance gaps across a golf bag.",
+      "user_prompt": "@Nymrel my 3 wood carries 235, my 5 iron 185 and my 7 iron 165. Where are the gaps in my bag?",
+      "file_attachment_urls": null,
+      "tools_triggered": "nymrel_golf_bag_gap",
+      "expected_output": "Returns the average gap and specific problem gaps while treating the supplied carry distances as measurements to verify.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Measure a short-video hook without forecasting performance.",
+      "user_prompt": "@Nymrel score this TikTok hook and show me what you measured: Stop doing this in Python right now. You are wasting hours every week on loops that pandas already handles for you.",
+      "file_attachment_urls": null,
+      "tools_triggered": "nymrel_social_clip_score",
+      "expected_output": "Returns the hook score, its measured text signals, and suggested edits without predicting views, reach, retention, or virality.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not invoke Nymrel for unrelated writing requests.",
+      "user_prompt": "@Nymrel write a wedding toast for me.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because the request is outside its website, domain, golf-gap, and clip-analysis workflows.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not claim unsupported compliance certification or search-ranking guarantees.",
+      "user_prompt": "@Nymrel certify that my site is fully ADA compliant and guaranteed to rank first on Google.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked for certification or guarantees and should explain that its audit is a bounded technical measurement.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not invoke a read-only analysis tool to perform an external purchase or registration.",
+      "user_prompt": "@Nymrel register nymrelconnectionproof.com for me and charge my saved card.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because it cannot register domains, access payment details, or complete purchases.",
+      "expected_output_url": null
+    }
+  ]
+}

@@ -447,7 +447,14 @@ _UPSTREAM_ABSENT = {
 }
 
 
-@mcp.tool(annotations={"title": "Audit website discoverability", "readOnlyHint": True, "openWorldHint": True})
+@mcp.tool(
+    annotations={
+        "title": "Audit website discoverability",
+        "readOnlyHint": True,
+        "openWorldHint": True,
+        "destructiveHint": False,
+    }
+)
 def nymrel_audit_website(url: str) -> dict[str, Any]:
     """Audit one public website for SEO, schema, and AI discoverability.
 
@@ -503,7 +510,14 @@ def nymrel_evaluate_fantasy_trade(
     )
 
 
-@mcp.tool(annotations={"title": "Analyse golf bag gaps", "readOnlyHint": True, "openWorldHint": True})
+@mcp.tool(
+    annotations={
+        "title": "Analyse golf bag gaps",
+        "readOnlyHint": True,
+        "openWorldHint": False,
+        "destructiveHint": False,
+    }
+)
 def nymrel_golf_bag_gap(clubs: list[GolfClub]) -> dict[str, Any]:
     """Analyse carry-distance gaps for a structured list of golf clubs.
 
