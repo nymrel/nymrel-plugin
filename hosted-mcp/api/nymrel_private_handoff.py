@@ -21,19 +21,23 @@ from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
 
 import requests
+from fastmcp.server.auth import JWTVerifier, RemoteAuthProvider
 from fastmcp.server.dependencies import get_access_token
 from fastmcp.tools.base import ToolResult
 from mcp.types import CallToolResult
-from pydantic import Field
+from pydantic import AnyHttpUrl, Field
 
 
 FEATURE_ENV = "NYMREL_PRIVATE_HANDOFF_MCP_ENABLED"
 API_URL_ENV = "NYMREL_PRIVATE_HANDOFF_API_URL"
 TIMEOUT_ENV = "NYMREL_PRIVATE_HANDOFF_TIMEOUT_SECONDS"
+OAUTH_ISSUER_ENV = "NYMREL_PRIVATE_HANDOFF_OAUTH_ISSUER"
 
 DEFAULT_API_URL = "https://nymrel.com/api/agent/v1/handoffs"
 DEFAULT_TIMEOUT_SECONDS = 20.0
 CONTRACT_VERSION = "nymrel.private-handoff.v1"
+MCP_BASE_URL = "https://mcp.nymrel.com"
+MCP_RESOURCE_URL = f"{MCP_BASE_URL}/mcp"
 RESOURCE_METADATA_URL = (
     "https://mcp.nymrel.com/.well-known/oauth-protected-resource/mcp"
 )
@@ -70,6 +74,59 @@ RequestedAssignee = Literal["auto", "codex", "claude", "operator"]
 def private_handoff_enabled() -> bool:
     """Return the explicit feature state; unknown values stay disabled."""
     return os.environ.get(FEATURE_ENV, "").strip().lower() in _TRUE_VALUES
+
+
+def _normalise_oauth_issuer(value: str) -> str:
+    issuer = value.strip().rstrip("/")
+    parsed = urlparse(issuer)
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.port is not None
+        or parsed.path
+        or parsed.params
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise RuntimeError("The Nymrel private handoff OAuth issuer is invalid.")
+    return issuer
+
+
+def configured_private_auth_provider() -> RemoteAuthProvider:
+    """Build direct JWT verification for a spec-compatible OAuth issuer.
+
+    AuthKit owns login, consent, PKCE, CIMD/DCR, and token issuance. The MCP
+    edge only advertises that issuer and verifies its RS256 JWTs for the exact
+    MCP resource. Each private tool then enforces its own exact operation
+    scope. No upstream client secret or shared service bearer token is used.
+    """
+    if not private_handoff_enabled():
+        raise RuntimeError(f"Set {FEATURE_ENV}=true before configuring private auth.")
+    raw_issuer = os.environ.get(OAUTH_ISSUER_ENV, "")
+    if not raw_issuer.strip():
+        raise RuntimeError(f"Set {OAUTH_ISSUER_ENV} before configuring private auth.")
+    issuer = _normalise_oauth_issuer(raw_issuer)
+    verifier = JWTVerifier(
+        jwks_uri=f"{issuer}/oauth2/jwks",
+        issuer=issuer,
+        audience=MCP_RESOURCE_URL,
+        algorithm="RS256",
+        # Scope enforcement is per tool below. Requiring both scopes here
+        # would reject a legitimate least-privilege token before its one tool
+        # could inspect it, causing an authorization loop.
+        required_scopes=None,
+        ssrf_safe=True,
+    )
+    return RemoteAuthProvider(
+        token_verifier=verifier,
+        authorization_servers=[AnyHttpUrl(issuer)],
+        base_url=MCP_BASE_URL,
+        scopes_supported=[CREATE_SCOPE, READ_SCOPE],
+        resource_name="Nymrel private handoff",
+        resource_documentation=AnyHttpUrl("https://nymrel.com/mcp"),
+    )
 
 
 def _feature_enabled_for_request(_context: Any) -> bool:
@@ -480,6 +537,8 @@ def _auth_failure(required_scope: str) -> ToolResult:
     ).payload()
     challenge = (
         f'Bearer resource_metadata="{RESOURCE_METADATA_URL}", '
+        'error="insufficient_scope", '
+        'error_description="Connect an approved Nymrel account with the required permission", '
         f'scope="{required_scope}"'
     )
     return OAuthChallengeResult(
@@ -496,8 +555,8 @@ def _verified_bearer(required_scope: str) -> str | None:
 
 
 def _security_meta(scope: str) -> dict[str, Any]:
-    # FastMCP 3.2.3 / MCP SDK emits this compatibility mirror under `_meta`;
-    # current OpenAI clients read the same scheme from that location.
+    # The list-tools adapter mirrors this value to the descriptor's required
+    # top-level field while retaining `_meta` for older clients.
     return {"securitySchemes": [{"type": "oauth2", "scopes": [scope]}]}
 
 

@@ -17,14 +17,13 @@ default and are not part of the current ChatGPT submission, review cases, or
 production contract. The legacy `nymrel_submit_studio_brief` tool remains
 removed and must never be used as a substitute.
 
-Do not turn on `NYMREL_PRIVATE_HANDOFF_MCP_ENABLED`, select an OAuth provider,
-configure credentials, or accept customer content as part of an ordinary MCP
-deploy. Activation is a separate protected release requiring approved client
-consent and project allowlists, retention/custody approval, a provider that
-validates OAuth issuer/audience/expiry/revocation/scopes, dedicated Nymrel REST
-secrets, exact provider-token-to-REST-principal mapping, and synthetic
-production proof. The feature flag without an injected provider is
-intentionally non-functional.
+Do not turn on `NYMREL_PRIVATE_HANDOFF_MCP_ENABLED`, configure an OAuth issuer,
+or accept customer content as part of an ordinary MCP deploy. Activation is a
+separate protected release requiring approved client consent and project
+allowlists, retention/custody approval, a Nymrel-owned AuthKit environment,
+dedicated Nymrel REST secrets and storage, exact provider-subject-to-principal
+mapping, and synthetic production proof. The feature flag without
+`NYMREL_PRIVATE_HANDOFF_OAUTH_ISSUER` now fails the deployment at import.
 
 ## Do not deploy from `Desktop/mcp-connector-lane`
 

@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from typing import Annotated  # noqa: E402
 
 from pydantic import Field  # noqa: E402
+from mcp.types import ListToolsRequest  # noqa: E402
 
 import nymrel_public_mcp_server as server  # noqa: E402
 import nymrel_private_handoff as private_handoff  # noqa: E402
@@ -45,6 +46,12 @@ PATH_ALIASES = frozenset({"/mcp", "/api/index", "/api/index/mcp", "/api/mcp", "/
 MCP_PATHS = PATH_ALIASES | frozenset({"/server", "/sse"})
 
 MAX_BODY_BYTES = 1_048_576
+PUBLIC_TOOL_NAMES = (
+    "nymrel_audit_website",
+    "nymrel_find_domain",
+    "nymrel_golf_bag_gap",
+    "nymrel_social_clip_score",
+)
 
 #: A TLD as the upstream actually accepts it: leading dot, 2-24 letters.
 #: The published schema said only "array of string" until 2026-08-18, so a model
@@ -142,21 +149,67 @@ def nymrel_social_clip_score(transcript_text: str, target_platform: str = "tikto
 private_handoff.register_private_handoff_tools(server.mcp)
 
 
+def _tool_security_schemes(tool: Any) -> list[dict[str, Any]]:
+    """Return one explicit per-tool auth policy for every published tool."""
+    if tool.name in private_handoff.PRIVATE_TOOL_NAMES:
+        metadata = tool.meta or {}
+        schemes = metadata.get("securitySchemes")
+        if not isinstance(schemes, list) or not schemes:
+            raise RuntimeError(f"Private tool {tool.name} is missing its OAuth policy.")
+        return schemes
+    if tool.name in PUBLIC_TOOL_NAMES:
+        return [{"type": "noauth"}]
+    raise RuntimeError(f"Tool {tool.name} has no reviewed authentication policy.")
+
+
+async def _list_tools_with_explicit_security(request: ListToolsRequest):
+    """Publish OpenAI's top-level auth field plus the legacy `_meta` mirror.
+
+    MCP SDK 1.27 accepts extension fields but FastMCP 3.2.3 does not populate
+    ``securitySchemes`` itself. Registering this bounded list-tools adapter
+    keeps the real wire descriptor compliant without rewriting response bytes.
+    """
+    result = await server.mcp._list_tools_mcp(request)
+    for tool in result.tools:
+        schemes = _tool_security_schemes(tool)
+        tool.meta = {**(tool.meta or {}), "securitySchemes": schemes}
+        setattr(tool, "securitySchemes", schemes)
+    return result
+
+
+# Replace FastMCP's registered low-level list handler before the HTTP app is
+# built. The SDK's Tool model explicitly allows extension fields, so the field
+# survives normal typed serialization and cache refreshes.
+server.mcp._mcp_server.list_tools()(_list_tools_with_explicit_security)
+
+
 # --- ASGI plumbing ----------------------------------------------------------
 
 _mcp_app = server.mcp.http_app(path=MCP_PATH, stateless_http=True, json_response=True)
 
-# The session manager's task group is bound to the event loop that started it.
-# Serverless adapters commonly run a fresh loop per invocation, so the state has
-# to be keyed by loop rather than by process.
+# The session manager's task group is bound to both the event loop and the task
+# that started it. A dedicated owner task therefore enters and exits each
+# loop's lifespan; request tasks only wait for readiness.
 _lifespans: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 _locks: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 
 
+async def _own_lifespan(ready: asyncio.Event, stop: asyncio.Event) -> None:
+    """Enter and exit FastMCP's task group from one owning task."""
+    try:
+        async with _mcp_app.router.lifespan_context(_mcp_app):
+            ready.set()
+            await stop.wait()
+    finally:
+        # Unblock startup if the lifespan failed before it could become ready.
+        ready.set()
+
+
 async def _ensure_lifespan() -> None:
-    """Start the MCP session manager once per event loop, without a lifespan event."""
+    """Start one owner task per event loop when the host omits lifespan events."""
     loop = asyncio.get_running_loop()
-    if loop in _lifespans:
+    state = _lifespans.get(loop)
+    if state is not None and not state[0].done():
         return
     lock = _locks.get(loop)
     if lock is None:
@@ -164,12 +217,27 @@ async def _ensure_lifespan() -> None:
         lock = asyncio.Lock()
         _locks[loop] = lock
     async with lock:
-        if loop in _lifespans:
+        state = _lifespans.get(loop)
+        if state is not None and not state[0].done():
             return
-        context = _mcp_app.router.lifespan_context(_mcp_app)
-        await context.__aenter__()
-        # Held for the life of the loop; the platform reclaims it on shutdown.
-        _lifespans[loop] = context
+        ready = asyncio.Event()
+        stop = asyncio.Event()
+        task = loop.create_task(_own_lifespan(ready, stop))
+        _lifespans[loop] = (task, stop)
+        await ready.wait()
+        if task.done():
+            await task
+
+
+async def _close_lifespan_for_current_loop() -> None:
+    """Signal the owner task and await deterministic same-task cleanup."""
+    loop = asyncio.get_running_loop()
+    state = _lifespans.pop(loop, None)
+    _locks.pop(loop, None)
+    if state is not None:
+        task, stop = state
+        stop.set()
+        await task
 
 
 async def _send_json(send, status: int, body: dict[str, Any]) -> None:
@@ -224,12 +292,7 @@ DISCOVERY = {
     "endpoint": "https://mcp.nymrel.com/mcp",
     "transport": "streamable-http",
     "authentication": "none",
-    "tools": [
-        "nymrel_audit_website",
-        "nymrel_find_domain",
-        "nymrel_golf_bag_gap",
-        "nymrel_social_clip_score",
-    ],
+    "tools": list(PUBLIC_TOOL_NAMES),
     "upstream_api": server.DEFAULT_BASE_URL,
     "support": "contact@nymrel.com",
     "docs": "https://nymrel.com/mcp",
@@ -410,9 +473,9 @@ def build_private_handoff_app(auth_provider):
     handlers read only provider-verified tokens from FastMCP's request context;
     public handlers remain anonymous.
 
-    No production provider is selected here. Activation must inject one that
-    publishes RFC 9728 protected-resource metadata and validates issuer,
-    audience, expiry, revocation and the two handoff scopes.
+    Production activation uses the direct remote provider configured below;
+    tests may still inject a synthetic provider. Both paths publish RFC 9728
+    metadata and validate issuer, audience, expiry and the two handoff scopes.
     """
     if auth_provider is None:
         raise RuntimeError("Private handoff activation requires an AuthProvider.")
@@ -447,6 +510,15 @@ def build_private_handoff_app(auth_provider):
             **middleware.kwargs,
         )
     return wrapped
+
+
+# Select the production provider only when the explicit feature flag is on.
+# Missing or invalid OAuth configuration then fails the deployment at import
+# rather than silently publishing private tools behind a broken auth surface.
+if private_handoff.private_handoff_enabled():
+    app = build_private_handoff_app(
+        private_handoff.configured_private_auth_provider()
+    )
 
 
 # Aliases some platform adapters look for.

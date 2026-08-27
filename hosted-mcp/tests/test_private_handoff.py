@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import sys
+import time
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
+from jose import jwt
 from mcp.server.auth.routes import build_resource_metadata_url
 from pydantic import AnyHttpUrl
 from starlette.responses import JSONResponse
@@ -190,6 +196,98 @@ class PrivateClientTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, "PRIVATE_HANDOFF_REJECTED")
 
 
+class ConfiguredPrivateAuthProviderTests(unittest.TestCase):
+    def test_direct_provider_pins_issuer_resource_algorithm_and_scopes(self):
+        issuer = "https://login.nymrel.test"
+        with patch.dict(
+            os.environ,
+            {
+                private.FEATURE_ENV: "true",
+                private.OAUTH_ISSUER_ENV: issuer,
+            },
+            clear=False,
+        ):
+            provider = private.configured_private_auth_provider()
+
+        verifier = provider.token_verifier
+        self.assertEqual(str(provider.authorization_servers[0]).rstrip("/"), issuer)
+        self.assertEqual(str(provider.base_url).rstrip("/"), private.MCP_BASE_URL)
+        self.assertEqual(verifier.issuer, issuer)
+        self.assertEqual(verifier.audience, private.MCP_RESOURCE_URL)
+        self.assertEqual(verifier.jwks_uri, f"{issuer}/oauth2/jwks")
+        self.assertEqual(verifier.algorithm, "RS256")
+        self.assertTrue(verifier.ssrf_safe)
+        self.assertEqual(verifier.required_scopes, [])
+
+    def test_configured_verifier_accepts_each_least_privilege_scope(self):
+        issuer = "https://login.nymrel.test"
+        with patch.dict(
+            os.environ,
+            {
+                private.FEATURE_ENV: "true",
+                private.OAUTH_ISSUER_ENV: issuer,
+            },
+            clear=False,
+        ):
+            verifier = private.configured_private_auth_provider().token_verifier
+
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        private_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+        public_pem = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        now = int(time.time())
+        for scope in (private.CREATE_SCOPE, private.READ_SCOPE):
+            token = jwt.encode(
+                {
+                    "iss": issuer,
+                    "aud": private.MCP_RESOURCE_URL,
+                    "sub": "user_synthetic_123",
+                    "scope": scope,
+                    "iat": now,
+                    "exp": now + 300,
+                },
+                private_pem,
+                algorithm="RS256",
+                headers={"kid": "synthetic-key"},
+            )
+            with patch.object(
+                verifier,
+                "_get_verification_key",
+                AsyncMock(return_value=public_pem),
+            ):
+                access = asyncio.run(verifier.verify_token(token))
+            self.assertIsNotNone(access)
+            self.assertEqual(access.scopes, [scope])
+
+    def test_direct_provider_fails_closed_on_missing_or_unsafe_issuer(self):
+        with patch.dict(os.environ, {private.FEATURE_ENV: "true"}, clear=False):
+            os.environ.pop(private.OAUTH_ISSUER_ENV, None)
+            with self.assertRaises(RuntimeError):
+                private.configured_private_auth_provider()
+        for issuer in (
+            "http://login.nymrel.test",
+            "https://login.nymrel.test/path",
+            "https://user@login.nymrel.test",
+            "https://login.nymrel.test:443",
+        ):
+            with self.subTest(issuer=issuer), patch.dict(
+                os.environ,
+                {
+                    private.FEATURE_ENV: "true",
+                    private.OAUTH_ISSUER_ENV: issuer,
+                },
+                clear=False,
+            ):
+                with self.assertRaises(RuntimeError):
+                    private.configured_private_auth_provider()
+
+
 class HostedPrivateHandoffTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.feature = patch.dict(
@@ -213,6 +311,9 @@ class HostedPrivateHandoffTests(unittest.IsolatedAsyncioTestCase):
         )
         self.app = index.build_private_handoff_app(self.provider)
 
+    async def asyncTearDown(self) -> None:
+        await index._close_lifespan_for_current_loop()
+
     async def _client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(
             transport=httpx.ASGITransport(app=self.app),
@@ -227,10 +328,20 @@ class HostedPrivateHandoffTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         tools = {tool["name"]: tool for tool in response.json()["result"]["tools"]}
         self.assertEqual(set(tools), PUBLIC_TOOLS | private.PRIVATE_TOOL_NAMES)
+        for name in PUBLIC_TOOLS:
+            self.assertEqual(tools[name]["securitySchemes"], [{"type": "noauth"}])
+            self.assertEqual(
+                tools[name]["_meta"]["securitySchemes"],
+                [{"type": "noauth"}],
+            )
         for name, scope in (
             ("nymrel_submit_private_handoff", private.CREATE_SCOPE),
             ("nymrel_get_private_handoff_status", private.READ_SCOPE),
         ):
+            self.assertEqual(
+                tools[name]["securitySchemes"],
+                [{"type": "oauth2", "scopes": [scope]}],
+            )
             self.assertEqual(
                 tools[name]["_meta"]["securitySchemes"],
                 [{"type": "oauth2", "scopes": [scope]}],
@@ -253,6 +364,8 @@ class HostedPrivateHandoffTests(unittest.IsolatedAsyncioTestCase):
         challenge = result["_meta"]["mcp/www_authenticate"][0]
         self.assertIn(private.RESOURCE_METADATA_URL, challenge)
         self.assertIn(private.READ_SCOPE, challenge)
+        self.assertIn('error="insufficient_scope"', challenge)
+        self.assertIn("error_description=", challenge)
 
     async def test_wrong_scope_fails_before_the_rest_client(self):
         stub = Mock()
@@ -279,6 +392,10 @@ class HostedPrivateHandoffTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result["isError"])
         self.assertEqual(_tool_payload(response)["error"]["code"], "HANDOFF_AUTH_REQUIRED")
         self.assertIn(private.CREATE_SCOPE, result["_meta"]["mcp/www_authenticate"][0])
+        self.assertIn(
+            'error="insufficient_scope"',
+            result["_meta"]["mcp/www_authenticate"][0],
+        )
 
     async def test_submit_uses_verified_context_token_and_rest_contract(self):
         stub = Mock()
@@ -379,8 +496,37 @@ class HostedPrivateHandoffTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(rewritten.json()["state"], "state-123")
         self.assertIsNone(rewritten.json()["path_shim"])
 
+    async def test_direct_provider_publishes_exact_resource_metadata(self):
+        issuer = "https://login.nymrel.test"
+        with patch.dict(os.environ, {private.OAUTH_ISSUER_ENV: issuer}, clear=False):
+            app = index.build_private_handoff_app(
+                private.configured_private_auth_provider()
+            )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://mcp.test",
+        ) as client:
+            response = await client.get(
+                "/.well-known/oauth-protected-resource/mcp"
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "resource": private.MCP_RESOURCE_URL,
+                "authorization_servers": [f"{issuer}/"],
+                "bearer_methods_supported": ["header"],
+                "scopes_supported": [private.CREATE_SCOPE, private.READ_SCOPE],
+                "resource_name": "Nymrel private handoff",
+                "resource_documentation": "https://nymrel.com/mcp",
+            },
+        )
+
 
 class DisabledPrivateHandoffTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncTearDown(self) -> None:
+        await index._close_lifespan_for_current_loop()
+
     async def test_default_catalog_remains_exactly_four_public_tools(self):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop(private.FEATURE_ENV, None)
@@ -391,8 +537,21 @@ class DisabledPrivateHandoffTests(unittest.IsolatedAsyncioTestCase):
                 response = await client.post(
                     "/mcp", headers=MCP_HEADERS, json=_rpc("tools/list")
                 )
-        names = {tool["name"] for tool in response.json()["result"]["tools"]}
+        tools = response.json()["result"]["tools"]
+        names = {tool["name"] for tool in tools}
         self.assertEqual(names, PUBLIC_TOOLS)
+        for tool in tools:
+            self.assertEqual(tool["securitySchemes"], [{"type": "noauth"}])
+            self.assertEqual(
+                tool["_meta"]["securitySchemes"],
+                [{"type": "noauth"}],
+            )
+
+    def test_unreviewed_future_tool_has_no_implicit_noauth_policy(self):
+        with self.assertRaises(RuntimeError):
+            index._tool_security_schemes(
+                SimpleNamespace(name="nymrel_future_write", meta=None)
+            )
 
     async def test_feature_flag_without_provider_still_exposes_only_public_tools(self):
         with patch.dict(os.environ, {private.FEATURE_ENV: "true"}, clear=False):
