@@ -17,7 +17,7 @@ import os
 import sys
 import weakref
 from typing import Any
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, parse_qsl, urlencode
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -26,6 +26,9 @@ from typing import Annotated  # noqa: E402
 from pydantic import Field  # noqa: E402
 
 import nymrel_public_mcp_server as server  # noqa: E402
+import nymrel_private_handoff as private_handoff  # noqa: E402
+
+from starlette.applications import Starlette  # noqa: E402
 
 
 MCP_PATH = "/mcp"
@@ -132,6 +135,13 @@ def nymrel_social_clip_score(transcript_text: str, target_platform: str = "tikto
     )
 
 
+# These tools are present in the hosted registry but feature-hidden unless the
+# private flag is explicit. Their handlers still require a provider-verified
+# token and the operation's exact scope. The public app below injects no auth
+# provider, so its live/default contract remains exactly four anonymous tools.
+private_handoff.register_private_handoff_tools(server.mcp)
+
+
 # --- ASGI plumbing ----------------------------------------------------------
 
 _mcp_app = server.mcp.http_app(path=MCP_PATH, stateless_http=True, json_response=True)
@@ -226,6 +236,17 @@ DISCOVERY = {
 }
 
 
+def _discovery(private_auth_available: bool) -> dict[str, Any]:
+    if not private_auth_available:
+        return DISCOVERY
+    return {
+        **DISCOVERY,
+        "name": "Nymrel Tool Suite",
+        "authentication": "optional-oauth2",
+        "private_tools": sorted(private_handoff.PRIVATE_TOOL_NAMES),
+    }
+
+
 def _original_path(scope) -> str | None:
     """Recover the pre-rewrite path the platform forwards as ?__path=.
 
@@ -253,8 +274,30 @@ def _original_path(scope) -> str | None:
     return recovered.rstrip("/") or "/"
 
 
-async def app(scope, receive, send):
-    """Root ASGI entrypoint exported to the hosting platform."""
+def _provider_query_string(scope) -> bytes:
+    """Preserve OAuth query parameters while removing the Vercel path shim."""
+    raw = scope.get("query_string", b"") or b""
+    if not raw:
+        return b""
+    try:
+        pairs = parse_qsl(raw.decode("latin-1"), keep_blank_values=True)
+    except (UnicodeDecodeError, ValueError):
+        return b""
+    return urlencode(
+        [(name, value) for name, value in pairs if name != "__path"],
+        doseq=True,
+    ).encode("ascii")
+
+
+async def _dispatch_app(
+    scope,
+    receive,
+    send,
+    *,
+    oauth_routes_app=None,
+):
+    """Serve the MCP app, optionally delegating OAuth provider routes."""
+    discovery = _discovery(oauth_routes_app is not None)
     if scope["type"] == "lifespan":
         # Delegate to the real app so a full ASGI server still gets clean
         # startup/shutdown; the lazy shim covers platforms that skip this.
@@ -273,23 +316,38 @@ async def app(scope, receive, send):
         # what the caller actually asked for.
         if recovered == "/":
             if scope.get("method") in {"GET", "HEAD"}:
-                await _send_json(send, 200, DISCOVERY)
+                await _send_json(send, 200, discovery)
                 return
             # A POST to the bare domain is someone following the discovery
             # document's endpoint loosely; serve it rather than lecture them.
         elif recovered not in MCP_PATHS:
+            if oauth_routes_app is not None:
+                delegated_scope = dict(
+                    scope,
+                    path=recovered,
+                    raw_path=recovered.encode("ascii", errors="ignore"),
+                    query_string=_provider_query_string(scope),
+                )
+                await oauth_routes_app(delegated_scope, receive, send)
+                return
             # Everything else - /.well-known/oauth-*, /register, stray crawls -
             # is NOT this server. 404 is load-bearing: it is what tells an MCP
             # client there is no sign-in service and it should connect
             # unauthenticated.
-            await _send_json(send, 404, DISCOVERY)
+            await _send_json(send, 404, discovery)
             return
 
     elif path not in PATH_ALIASES:
         # No rewrite in play (local run, tests, a future platform): the scope
         # path is the real path, so route on it directly.
         if path not in MCP_PATHS:
-            await _send_json(send, 200 if path == "/" else 404, DISCOVERY)
+            if path == "/":
+                await _send_json(send, 200, discovery)
+                return
+            if oauth_routes_app is not None:
+                await oauth_routes_app(scope, receive, send)
+                return
+            await _send_json(send, 404, discovery)
             return
         # /server and /sse reach the MCP handling below.
 
@@ -306,7 +364,7 @@ async def app(scope, receive, send):
                 accept = value
                 break
         if b"text/event-stream" not in accept:
-            await _send_json(send, 200, DISCOVERY)
+            await _send_json(send, 200, discovery)
             return
 
     if scope.get("method") == "POST":
@@ -335,6 +393,60 @@ async def app(scope, receive, send):
     await _ensure_lifespan()
     scope = dict(scope, path=MCP_PATH, raw_path=MCP_PATH.encode("ascii"))
     await _mcp_app(scope, receive, send)
+
+
+async def app(scope, receive, send):
+    """Disabled-by-default public entrypoint exported to the host."""
+    await _dispatch_app(scope, receive, send)
+
+
+def build_private_handoff_app(auth_provider):
+    """Build the hybrid public/private app with an injected AuthProvider.
+
+    FastMCP's normal ``http_app(auth=...)`` wrapper makes the entire MCP
+    endpoint require a bearer token, which would break Nymrel's four public
+    tools. Instead, the provider's standard authentication/context middleware
+    is installed without its endpoint-wide ``RequireAuthMiddleware``. Private
+    handlers read only provider-verified tokens from FastMCP's request context;
+    public handlers remain anonymous.
+
+    No production provider is selected here. Activation must inject one that
+    publishes RFC 9728 protected-resource metadata and validates issuer,
+    audience, expiry, revocation and the two handoff scopes.
+    """
+    if auth_provider is None:
+        raise RuntimeError("Private handoff activation requires an AuthProvider.")
+    if not private_handoff.private_handoff_enabled():
+        raise RuntimeError(
+            f"Set {private_handoff.FEATURE_ENV}=true before building the private app."
+        )
+
+    routes = auth_provider.get_routes(mcp_path=MCP_PATH)
+    oauth_routes_app = Starlette(routes=routes)
+
+    async def private_app(scope, receive, send):
+        auth_context = private_handoff.enter_private_auth_context()
+        try:
+            await _dispatch_app(
+                scope,
+                receive,
+                send,
+                oauth_routes_app=oauth_routes_app,
+            )
+        finally:
+            private_handoff.exit_private_auth_context(auth_context)
+
+    wrapped = private_app
+    # Starlette applies its Middleware list in reverse. Reproduce that ordering
+    # so AuthenticationMiddleware populates scope.user before
+    # AuthContextMiddleware snapshots the verified FastMCP access token.
+    for middleware in reversed(auth_provider.get_middleware()):
+        wrapped = middleware.cls(
+            wrapped,
+            *middleware.args,
+            **middleware.kwargs,
+        )
+    return wrapped
 
 
 # Aliases some platform adapters look for.
