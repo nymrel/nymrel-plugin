@@ -21,11 +21,18 @@ The hosted service is the source of truth for production tools. The TypeScript s
 ## Local widget development
 
 ```powershell
-$env:npm_config_cache = "$PWD\.npm-cache"
-npm.cmd install
-npm.cmd run verify
-npm.cmd start
+fnm use (Get-Content .node-version)
+corepack npm@11.19.1 ci
+corepack npm@11.19.1 run verify
+corepack npm@11.19.1 audit --audit-level=high
+corepack npm@11.19.1 audit --omit=dev --audit-level=high
+corepack npm@11.19.1 start
 ```
+
+The repository pins Node 24.20.0 and npm 11.19.1 while continuously proving
+compatibility on Node 22.22.0 and 24.20.0. Install scripts are denied unless an
+exact package version appears in `allowScripts`; the current reviewed set is
+only `esbuild@0.28.2`.
 
 The HTTP MCP endpoint is `http://127.0.0.1:8787/mcp`. A standalone widget preview is available at `http://127.0.0.1:8787/preview`.
 
@@ -55,9 +62,17 @@ The deployable source for `https://mcp.nymrel.com/mcp` lives in `hosted-mcp/`. T
 - Static contract: plugin manifest, exact tool metadata, MCP Apps resource metadata, and eight review evals.
 - Compile/unit: `npm run check` and `npm test`.
 - Runtime: `npm run build && npm run test:mcp` starts the real HTTP server, connects an MCP client, and verifies tool/resource discovery.
+- Hosted runtime: Python 3.13 runs the pinned FastMCP service through compile,
+  Ruff, packaging, OAuth, review-case, and dependency-audit gates on Linux and
+  Windows.
 - Live public fetch: `npm run test:live` audits `https://example.com`; use only when outbound network proof is wanted.
 - Host: connect the deployed HTTPS `/mcp` endpoint in ChatGPT Developer Mode, invoke `@Nymrel`, and run the prompts in `evals/review-cases.json` (six positive, four negative, one per published tool).
 
 ## Publication boundary
 
 Local installation and the private ChatGPT/Claude connections do not prove public directory publication. OpenAI and Anthropic review their own listings independently.
+
+See `CONTRIBUTING.md` for the complete local gate and `SECURITY.md` for private
+vulnerability reporting. GitHub Actions execution is separate evidence: a
+local pass does not imply that a hosted workflow, deployment, or directory
+review has completed.
