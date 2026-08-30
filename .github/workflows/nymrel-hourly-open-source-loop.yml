@@ -8,7 +8,7 @@ on:
 jobs:
   maintain:
     name: Propose guarded maintenance
-    uses: nymrel/PermitMesh/.github/workflows/nymrel-hourly-worker.yml@3a3e9ea17ca7655cb635f06f7fb51aa0b00ce1c5
+    uses: nymrel/PermitMesh/.github/workflows/nymrel-hourly-worker.yml@7e9da5cea9ffcbd8a6f4933d0dd38960de6b3637
     with:
       canary_mode: false
       guard_ref: 3a3e9ea17ca7655cb635f06f7fb51aa0b00ce1c5
