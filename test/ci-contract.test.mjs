@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
-const packageJson = JSON.parse(read("package.json"));
+const packageSource = read("package.json");
+const packageJson = JSON.parse(packageSource);
 const ci = read(".github/workflows/contract-ci.yml");
 const codeql = read(".github/workflows/codeql.yml");
 const dependabot = read(".github/dependabot.yml");
@@ -69,6 +70,12 @@ test("Dependabot watches npm, Python, and workflow dependencies", () => {
 });
 
 test("local package policy is fail closed", () => {
+  assert.equal(
+    (packageSource.match(/^  "engines": \{$/gmu) ?? []).length,
+    1,
+    "package.json must declare exactly one top-level engines object",
+  );
+  assert.equal(packageJson.engines.node, ">=22 <25");
   assert.equal(packageJson.packageManager, "npm@11.19.1");
   assert.equal(packageJson.devEngines.packageManager.onFail, "error");
   assert.deepEqual(packageJson.allowScripts, { "esbuild@0.28.2": true });
