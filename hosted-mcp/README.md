@@ -37,9 +37,10 @@ unrelated provider token fails closed with `401` and is not an activation. No
 provider secret, production token, tester identity, or real customer content
 is part of source control.
 
-FastMCP 3.2.3 does not populate the OpenAI-required top-level
-`securitySchemes` field itself. The hosted list-tools adapter publishes that
-field explicitly and retains the same value under `_meta` for older clients.
+The pinned FastMCP 3.4.7 integration does not leave the OpenAI-required
+top-level `securitySchemes` field to implicit framework behavior. The hosted
+list-tools adapter publishes that field explicitly and retains the same value
+under `_meta` for older clients.
 Contract tests require `noauth` on every public tool and the exact OAuth scope
 on each private tool. The adapter also returns a complete
 `_meta["mcp/www_authenticate"]` challenge when a private call lacks a valid
@@ -48,19 +49,33 @@ production activation.
 
 ## Verify
 
+The deployable runtime is pinned to Python 3.13. Create a clean environment and
+install the reviewed runtime plus test tools:
+
 ```powershell
-python -m unittest discover -s tests -v
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip==26.2.1
+.\.venv\Scripts\python.exe -m pip install -r requirements-test.txt
+.\.venv\Scripts\python.exe -m pip check
+.\.venv\Scripts\python.exe -m ruff check --config pyproject.toml api tests
+.\.venv\Scripts\python.exe -m compileall -q api
+.\.venv\Scripts\python.exe -m pytest tests -q
+.\.venv\Scripts\python.exe -m pip_audit --strict --progress-spinner off -r requirements.txt
 ```
 
 The private adapter's synthetic-only gate is:
 
 ```powershell
-python -m unittest tests.test_private_handoff -v
+.\.venv\Scripts\python.exe -m pytest tests/test_private_handoff.py -q
 ```
 
 ## Deploy
 
-Link this directory to the existing `nymrel-mcp` Vercel project, run the tests, then deploy from this exact clean commit. Verify `tools/list` and one successful call per advertised tool after the production alias is ready.
+Link this directory to the existing `nymrel-mcp` Vercel project, run the tests,
+then deploy from this exact clean commit through the existing protected release
+rail. Verify `tools/list` and one successful call per advertised tool after the
+production alias is ready. A source, PR, or local-test result is not a
+deployment receipt.
 
 Do not deploy the private feature until its separate consent, retention,
 AuthKit tenant, tester-subject, dedicated-storage, project-allowlist, and

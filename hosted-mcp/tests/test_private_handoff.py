@@ -13,10 +13,10 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
+import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
-from jose import jwt
 from mcp.server.auth.routes import build_resource_metadata_url
 from pydantic import AnyHttpUrl
 from starlette.responses import JSONResponse

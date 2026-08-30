@@ -1,0 +1,104 @@
+name: Nymrel plugin contract CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nymrel-plugin-contract-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  node-contract:
+    name: Node ${{ matrix.node }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+        node: ["22.22.0", "24.20.0"]
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Use the reviewed npm toolchain
+        working-directory: ${{ runner.temp }}
+        run: npm install --global npm@11.19.1
+
+      - name: Confirm the npm toolchain
+        run: npm --version
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify TypeScript, local MCP, and CI contracts
+        run: npm run verify
+
+      - name: Verify generated distribution is committed
+        run: git diff --exit-code -- dist
+
+      - name: Audit the complete dependency graph
+        run: npm run audit
+
+      - name: Audit production dependencies
+        run: npm run audit:prod
+
+  hosted-mcp-contract:
+    name: Python ${{ matrix.python }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+        python: ["3.13"]
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Python ${{ matrix.python }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: hosted-mcp/requirements*.txt
+
+      - name: Use the reviewed pip toolchain
+        run: python -m pip install --disable-pip-version-check --upgrade pip==26.2.1
+
+      - name: Install pinned runtime and test dependencies
+        run: python -m pip install --disable-pip-version-check -r hosted-mcp/requirements-test.txt
+
+      - name: Verify dependency consistency
+        run: python -m pip check
+
+      - name: Lint hosted MCP source
+        run: python -m ruff check --config hosted-mcp/pyproject.toml hosted-mcp/api hosted-mcp/tests
+
+      - name: Compile hosted MCP source
+        run: python -m compileall -q hosted-mcp/api
+
+      - name: Run hosted MCP contract, packaging, and review-case tests
+        run: python -m pytest hosted-mcp/tests -q
+
+      - name: Audit Python runtime dependencies
+        run: python -m pip_audit --strict --progress-spinner off -r hosted-mcp/requirements.txt

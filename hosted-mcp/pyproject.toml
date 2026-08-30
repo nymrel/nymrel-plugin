@@ -1,0 +1,15 @@
+[project]
+name = "nymrel-hosted-mcp"
+version = "1.2.0"
+description = "Nymrel's public MCP service and activation-held private handoff adapter."
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "fastmcp==3.4.7",
+  "requests==2.34.2",
+]
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

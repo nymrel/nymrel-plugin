@@ -1,0 +1,41 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "14:00"
+      timezone: America/Los_Angeles
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      runtime-dependencies:
+        dependency-type: production
+        update-types: [minor, patch]
+      development-toolchain:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: pip
+    directory: /hosted-mcp
+    schedule:
+      interval: weekly
+      day: monday
+      time: "14:10"
+      timezone: America/Los_Angeles
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "14:20"
+      timezone: America/Los_Angeles
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns: ["*"]
+        update-types: [minor, patch]
