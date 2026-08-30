@@ -40,6 +40,14 @@ For stdio-only development hosts, build first and launch `node dist/server.js --
 
 All four tools are live, credential-free, read-only, and backed by the production Nymrel API. Trade evaluation, permit lookup, and studio intake remain outside the public catalog until their provider or authorization contracts are production-ready.
 
+The hosted source also includes an activation-held private-handoff adapter for
+approved clients. It keeps `@Nymrel` as the invocation surface while requiring
+OAuth and server-side project allowlists for submit/status calls. The production
+code path is pinned to an RS256 OAuth issuer and the exact MCP audience, but the
+feature remains disabled until a Nymrel-owned AuthKit tenant, tester subjects,
+dedicated storage, and production canaries satisfy the release gate. See
+`hosted-mcp/README.md` for the activation boundary.
+
 The deployable source for `https://mcp.nymrel.com/mcp` lives in `hosted-mcp/`. The broader vendored API contracts stay private to that deployment package; `hosted-mcp/api/index.py` explicitly publishes only the four production-ready tools.
 
 ## Validation levels
