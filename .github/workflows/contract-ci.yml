@@ -35,7 +35,9 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
+          # setup-node's cache lookup invokes the bundled npm before the
+          # reviewed npm version below is installed; devEngines fails closed.
+          package-manager-cache: false
 
       - name: Use the reviewed npm toolchain
         working-directory: ${{ runner.temp }}
