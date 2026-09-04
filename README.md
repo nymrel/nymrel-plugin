@@ -1,15 +1,35 @@
 # Nymrel universal plugin
 
-One package for the live Nymrel ChatGPT app, Codex plugin, Claude plugin, and hosted MCP service.
+One installable Nymrel front door for ChatGPT and Codex, with a compatible
+Claude package and one hosted MCP service.
+
+## Tag Nymrel
+
+After the plugin is installed, start a new conversation and tag `@Nymrel`:
+
+- `@Nymrel turn this idea into a build brief.`
+- `@Nymrel audit https://example.com and prioritize the fixes.`
+- `@Nymrel help me choose the right service for this business.`
+
+The `nymrel-studio` skill handles client discovery and creates a scoped brief
+without pretending it was sent. The `nymrel-website-audit` skill and hosted MCP
+tools handle the production read-only workflows. A future authenticated handoff
+can submit approved briefs and return client status through the same tag.
+
+The operator connection already works in ChatGPT and Codex. Public availability
+still requires OpenAI directory review and publication; a local installation or
+developer-mode connection is not public distribution.
 
 ## Live bindings
 
 - ChatGPT app: the `.app.json` file binds the installed plugin to the registered Nymrel app.
-- Codex plugin: the `.codex-plugin/plugin.json` manifest discovers the skill, app, and remote MCP configuration.
-- Claude plugin: the `.claude-plugin/plugin.json` manifest discovers the same skill and remote MCP configuration.
+- Codex plugin: the `.codex-plugin/plugin.json` manifest discovers both skills, the app, and remote MCP configuration.
+- Claude plugin: the `.claude-plugin/plugin.json` manifest discovers the remote MCP configuration; Claude publication remains separate.
 - MCP: every host connects to `https://mcp.nymrel.com/mcp` through the root `.mcp.json` file.
 
-The hosted service is the source of truth for production tools. The TypeScript server in this folder remains a local development harness for the polished Website Audit widget; it is not the production MCP endpoint.
+The hosted service is the source of truth for production tools. The TypeScript
+server in this folder remains a local development harness for the polished
+Website Audit widget; it is not the production MCP endpoint.
 
 ## Product boundary
 
@@ -70,7 +90,15 @@ The deployable source for `https://mcp.nymrel.com/mcp` lives in `hosted-mcp/`. T
 
 ## Publication boundary
 
-Local installation and the private ChatGPT/Claude connections do not prove public directory publication. OpenAI and Anthropic review their own listings independently.
+OpenAI now uses one universal plugin directory for supported ChatGPT and Codex
+surfaces. The Nymrel package has the required manifest, registered app binding,
+skills, production MCP URL, review cases, and publisher links. It is not public
+until the OpenAI submission portal records an approved, published version.
+
+The installed ChatGPT connection must be refreshed before submission because
+its current cached tool snapshot still exposes the retired seven-tool catalog;
+the live endpoint and repository contract expose exactly four reviewed public
+tools. Anthropic review remains separate.
 
 See `CONTRIBUTING.md` for the complete local gate and `SECURITY.md` for private
 vulnerability reporting. GitHub Actions execution is separate evidence: a
