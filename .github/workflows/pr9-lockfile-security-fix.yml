@@ -1,0 +1,51 @@
+name: PR9 lockfile security repair
+
+on:
+  push:
+    branches:
+      - chatgpt/hourly-status-permission-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  repair-lockfile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true
+
+      - name: Use reviewed Node.js runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.20.0"
+          package-manager-cache: false
+
+      - name: Use reviewed npm toolchain
+        working-directory: ${{ runner.temp }}
+        run: npm install --global npm@11.19.1
+
+      - name: Refresh fixable transitive advisories in lockfile
+        run: npm audit fix --package-lock-only
+
+      - name: Verify lockfile installs and clears high-severity audit gate
+        run: |
+          npm ci
+          npm audit --audit-level=high
+
+      - name: Commit lockfile repair when changed
+        shell: bash
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "Lockfile already repaired."
+            exit 0
+          fi
+          git diff --exit-code -- package.json
+          git config user.name "Nymrel CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "fix(deps): refresh vulnerable transitive lockfile"
+          git push origin HEAD:chatgpt/hourly-status-permission-20260907
