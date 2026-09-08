@@ -35,29 +35,27 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node }}
+          # The cache probe runs the bundled npm before our exact reviewed
+          # npm version is installed, which strict devEngines must reject.
           package-manager-cache: false
 
-      - name: Use the reviewed npm toolchain
-        working-directory: ${{ runner.temp }}
-        run: npm install --global npm@11.19.1
-
       - name: Confirm the npm toolchain
-        run: npm --version
+        run: corepack npm@11.19.1 --version
 
       - name: Install locked dependencies
-        run: npm ci
+        run: corepack npm@11.19.1 ci
 
       - name: Verify TypeScript, local MCP, and CI contracts
-        run: npm run verify
+        run: corepack npm@11.19.1 run verify
 
       - name: Verify generated distribution is committed
         run: git diff --exit-code -- dist
 
       - name: Audit the complete dependency graph
-        run: npm run audit
+        run: corepack npm@11.19.1 audit --audit-level=high
 
       - name: Audit production dependencies
-        run: npm run audit:prod
+        run: corepack npm@11.19.1 audit --omit=dev --audit-level=high
 
   hosted-mcp-contract:
     name: Python ${{ matrix.python }} / ${{ matrix.os }}

@@ -3,8 +3,8 @@
   "schema_version": 1,
   "app_info": {
     "display_name": "Nymrel",
-    "subtitle": "Analyze sites, names, clips",
-    "description": "Nymrel audits public websites, suggests domain names with explicit availability evidence, analyzes golf-club distance gaps, and measures short-video hook signals without changing external state.",
+    "subtitle": "Build briefs and live studio tools",
+    "description": "Tag Nymrel to scope a product or client need, choose a studio service, audit public websites, suggest domain names with explicit availability evidence, analyze golf-club distance gaps, or measure short-video hook signals.",
     "category": "PRODUCTIVITY"
   },
   "tools": {

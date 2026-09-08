@@ -1,13 +1,18 @@
 {
   "name": "nymrel",
-  "version": "1.2.0",
-  "description": "Use Nymrel's production website, domain, golf, and social tools from ChatGPT, Codex, or another MCP host.",
+  "version": "1.3.0",
+  "description": "Bring a website, product idea, or client need to Nymrel from ChatGPT and Codex.",
   "author": {
     "name": "Nymrel",
+    "email": "contact@nymrel.com",
     "url": "https://nymrel.com"
   },
-  "homepage": "https://nymrel.com/scan",
+  "homepage": "https://nymrel.com",
+  "repository": "https://github.com/nymrel/nymrel-plugin",
+  "license": "MIT",
   "keywords": [
+    "product-studio",
+    "client-brief",
     "website-audit",
     "seo",
     "ai-discoverability",
@@ -18,23 +23,23 @@
   "apps": "./.app.json",
   "interface": {
     "displayName": "Nymrel",
-    "shortDescription": "Use Nymrel's live tools from your AI workspace.",
-    "longDescription": "Nymrel connects ChatGPT, Codex, and Claude to one hosted MCP service for public website audits and a small set of focused studio tools. Each tool states its evidence and limitations in its result.",
+    "shortDescription": "Build briefs and live Nymrel studio tools.",
+    "longDescription": "Tag Nymrel in ChatGPT or Codex to turn an idea into a scoped build brief, find the right Nymrel service, or use Nymrel's live website, domain, golf, and social tools. The public tools are read-only and state their evidence and limitations.",
     "developerName": "Nymrel",
     "category": "Productivity",
     "capabilities": [
-      "Interactive",
+      "Skills",
       "Remote MCP",
       "Read-only tools"
     ],
-    "websiteURL": "https://nymrel.com/scan",
+    "websiteURL": "https://nymrel.com",
     "privacyPolicyURL": "https://nymrel.com/privacy",
     "termsOfServiceURL": "https://nymrel.com/terms",
     "brandColor": "#A8541F",
     "defaultPrompt": [
-      "Audit my website and explain the top fixes.",
-      "Check this public page for AI readability.",
-      "Return a developer-friendly website audit."
+      "Turn my idea into a Nymrel-ready build brief.",
+      "Audit my website and prioritize the fixes.",
+      "Help me choose the right Nymrel service."
     ]
   }
 }
