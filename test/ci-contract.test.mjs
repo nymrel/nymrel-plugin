@@ -32,10 +32,21 @@ test("contract CI is least privilege and covers exact cross-platform runtimes", 
   assert(ci.includes('node: ["22.22.0", "24.20.0"]'));
   assert(ci.includes('python: ["3.13"]'));
   assert(ci.includes("persist-credentials: false"));
-  assert(ci.includes("npm install --global npm@11.19.1"));
-  assert(ci.includes("run: npm ci"));
-  assert(ci.includes("run: npm run verify"));
-  assert(ci.includes("run: npm run audit:prod"));
+  assert(!ci.includes("cache: npm"), "setup-node must not invoke npm before the reviewed toolchain");
+  assert.equal(
+    (ci.match(/package-manager-cache: false/gu) ?? []).length,
+    1,
+    "the Node bootstrap must explicitly disable setup-node's implicit npm cache",
+  );
+  assert(
+    ci.indexOf("package-manager-cache: false") < ci.indexOf("corepack npm@11.19.1 --version"),
+    "the cache boundary must be declared before npm 11.19.1 is activated",
+  );
+  assert(!ci.includes("npm install --global"));
+  assert(ci.includes("run: corepack npm@11.19.1 ci"));
+  assert(ci.includes("run: corepack npm@11.19.1 run verify"));
+  assert(ci.includes("run: corepack npm@11.19.1 audit --audit-level=high"));
+  assert(ci.includes("run: corepack npm@11.19.1 audit --omit=dev --audit-level=high"));
   assert(ci.includes("python -m pip check"));
   assert(ci.includes("python -m ruff check"));
   assert(ci.includes("python -m pytest hosted-mcp/tests -q"));

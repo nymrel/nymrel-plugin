@@ -4,6 +4,7 @@ import sys
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "api"))
 
@@ -41,12 +42,14 @@ class SsrfGuardTests(unittest.TestCase):
 class UnmeasuredScoringTests(unittest.TestCase):
     def test_unmeasured_checks_do_not_become_recommendations(self):
         """An unchecked item must never be reported as a problem we saw."""
-        original = native_audit.BUDGET_SECONDS
-        native_audit.BUDGET_SECONDS = 0.0001
-        try:
+        responses = [
+            (200, "<html><head><title>Measured page</title></head></html>"),
+            *[(-1, "")] * 4,
+        ]
+        with patch.object(native_audit, "_resolves_to_public_ip", return_value=True), patch.object(
+            native_audit, "_get", side_effect=responses
+        ):
             result = native_audit.audit_website("https://example.com")
-        finally:
-            native_audit.BUDGET_SECONDS = original
 
         self.assertTrue(result["unmeasured_checks"])
         self.assertLess(result["scored_out_of"], 100)

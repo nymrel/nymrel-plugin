@@ -1,13 +1,31 @@
-# ChatGPT plugin submission packet
+# Nymrel universal plugin submission packet
 
 ## Listing
 
 - Name: Nymrel
 - Publisher: Nymrel
 - Category: Productivity
-- One-line value: See what helps or hurts a public webpage, then get a prioritized fix plan.
+- One-line value: Bring an idea, website, or client need to Nymrel without leaving ChatGPT or Codex.
 - MCP endpoint: `https://mcp.nymrel.com/mcp`
-- Authentication: none for the free public audit v1.
+- Authentication: none for the four public tools or the bundled skills.
+
+## Release notes
+
+Version 1.3.0 adds the `nymrel-studio` skill for client discovery, service
+matching, and build-brief preparation; updates the listing around direct
+`@Nymrel` use in ChatGPT and Codex; and leaves the reviewed four-tool MCP
+contract and authentication boundary unchanged.
+
+## Supported installed-plugin workflows
+
+- Turn an idea or existing problem into a Nymrel-ready build brief.
+- Match the user to a Nymrel service without claiming a booking or sale.
+- Audit one public page, find domain candidates, analyze golf-club gaps, or
+  measure short-video hook signals through the production MCP endpoint.
+
+The first two workflows are skill-guided and do not transmit the brief. The
+four MCP tools are anonymous and read-only. Authenticated client handoff remains
+activation-held and is not part of this public submission.
 
 ## Review claims
 
@@ -19,9 +37,9 @@
 
 ## Starter prompts
 
-1. Audit my website and explain the top fixes.
-2. Check this public page for AI readability.
-3. Return a developer-friendly website audit.
+1. Turn my idea into a Nymrel-ready build brief.
+2. Audit my website and prioritize the fixes.
+3. Help me choose the right Nymrel service.
 
 ## Test cases
 
@@ -34,7 +52,8 @@ a case names a tool this server does not publish.
 ## Current provider state
 
 - The hosted MCP endpoint is live and lists four credential-free read tools.
-- The Nymrel custom app is connected in the operator's ChatGPT account.
+- The Nymrel custom app is connected in the operator's ChatGPT account, and
+  direct `@Nymrel` invocation works there.
 - The same MCP endpoint is connected in the operator's Claude Code user scope.
 - Website Audit, domain suggestions, golf bag gaps, and social clip scoring return production results.
 - Trade evaluation, permit lookup, and studio intake are intentionally not advertised until their provider or authorization contracts are production-ready.
@@ -43,5 +62,15 @@ a case names a tool this server does not publish.
 
 - Verify Nymrel publisher identity and Apps Management write access in the OpenAI Platform.
 - Support URL is live at https://nymrel.com/support (added 2026-08-18).
-- Run the provider's tool scan, review imported annotations, execute all ten cases, and record same-version receipts.
-- Submit separately to OpenAI and Anthropic. Local installation is not directory approval.
+- Refresh the registered Nymrel app before the provider scan. The installed
+  ChatGPT snapshot still exposes seven tools, while the live MCP endpoint lists
+  the reviewed four-tool public contract.
+- Add the production MCP URL, complete the domain-verification challenge, and
+  run a fresh tool scan in the OpenAI submission portal.
+- Review every imported schema, security scheme, annotation, and justification.
+- Upload or import both bundled skills and verify the three starter prompts.
+- Provide a public demo-recording URL, exactly five positive cases, exactly
+  three negative cases, release notes, country availability, and policy
+  attestations.
+- Submit and publish through OpenAI after approval. Submit separately to
+  Anthropic; local installation is not directory approval.
