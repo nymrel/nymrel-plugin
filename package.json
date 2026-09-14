@@ -17,7 +17,7 @@
     "verify": "node scripts/verify-toolchain.mjs && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.json && node --test test/*.test.mjs && node scripts/mcp-smoke.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/ext-apps": "1.7.5",
+    "@modelcontextprotocol/ext-apps": "2.0.0",
     "@modelcontextprotocol/sdk": "1.30.0",
     "cheerio": "1.2.0",
     "zod": "4.5.4"
