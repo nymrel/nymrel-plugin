@@ -9,6 +9,7 @@ the served bytes can.
 
 Usage:
     python scripts/verify_live_contract.py [base_url]
+    python scripts/verify_live_contract.py --remote-read --issuer https://issuer.example/
 
 Default base_url is https://mcp.nymrel.com. Exits non-zero on any failure,
 printing one line per check. Read-only: the only tool it invokes with valid
@@ -17,6 +18,7 @@ arguments is the golf analyser, which computes over the numbers supplied.
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import urllib.error
@@ -33,6 +35,15 @@ EXPECTED_TOOLS = {
     "nymrel_golf_bag_gap",
     "nymrel_social_clip_score",
 }
+REMOTE_TOOLS = {
+    "nymrel_remote_" + tool["name"]
+    for tool in json.loads(
+        (Path(__file__).resolve().parent.parent / "api" / "remote-read-tools.json").read_text()
+    )
+}
+REMOTE_RESOURCE = "https://mcp.nymrel.com/mcp"
+REMOTE_METADATA = "/.well-known/oauth-protected-resource/mcp"
+REMOTE_SCOPES = {"devices:read", "tools:read"}
 
 HEADERS = {
     "Content-Type": "application/json",
@@ -58,7 +69,14 @@ def rpc(base: str, method: str, params: dict) -> dict:
 
 
 def main() -> int:
-    base = (sys.argv[1] if len(sys.argv) > 1 else "https://mcp.nymrel.com").rstrip("/")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("base_url", nargs="?", default="https://mcp.nymrel.com")
+    parser.add_argument("--remote-read", action="store_true", help="Check the activated private read catalog and OAuth metadata")
+    parser.add_argument("--issuer", help="Exact expected OAuth issuer, including its published trailing slash")
+    args = parser.parse_args()
+    if args.remote_read and not args.issuer:
+        parser.error("--remote-read requires --issuer")
+    base = args.base_url.rstrip("/")
     failures: list[str] = []
 
     def check(label: str, ok: bool, detail: str = "") -> None:
@@ -84,7 +102,8 @@ def main() -> int:
     #    caller-completable.
     tools = rpc(base, "tools/list", {})["result"]["tools"]
     names = {tool["name"] for tool in tools}
-    check("tools/list returns the expected four", names == EXPECTED_TOOLS, str(sorted(names)))
+    expected = EXPECTED_TOOLS | REMOTE_TOOLS if args.remote_read else EXPECTED_TOOLS
+    check("tools/list returns the expected catalog", names == expected, str(sorted(names)))
     for tool in tools:
         opaque = opaque_input_nodes(tool.get("inputSchema", {}))
         check(f"{tool['name']} schema is caller-completable", not opaque, ", ".join(opaque))
@@ -93,6 +112,12 @@ def main() -> int:
             f"{tool['name']} carries title + readOnlyHint",
             bool(annotations.get("title")) and "readOnlyHint" in annotations,
         )
+        expected_schemes = (
+            [{"type": "oauth2", "scopes": sorted(REMOTE_SCOPES)}]
+            if tool["name"] in REMOTE_TOOLS else [{"type": "noauth"}]
+        )
+        schemes = tool.get("securitySchemes") or (tool.get("_meta") or {}).get("securitySchemes")
+        check(f"{tool['name']} carries exact auth policy", schemes == expected_schemes)
 
     # 3. The golf contract round-trips: the documented shape is accepted and
     #    a wrong key is rejected by the schema layer, naming the field.
@@ -121,25 +146,47 @@ def main() -> int:
         bad_text[:120],
     )
 
-    # 4. OAuth discovery probes answer 404. A 200 here made Claude.ai read
-    #    this authless server as a broken OAuth provider and refuse to connect
-    #    ("Couldn't register with Nymrel Tools's sign-in service", 2026-08-18).
-    #    The 404 is what tells an MCP client to proceed unauthenticated.
-    for probe in (
-        "/.well-known/oauth-protected-resource",
-        "/.well-known/oauth-authorization-server",
-        "/.well-known/openid-configuration",
-        "/register",
-    ):
-        request = urllib.request.Request(f"{base}{probe}", method="GET")
+    if args.remote_read:
+        request = urllib.request.Request(f"{base}{REMOTE_METADATA}", method="GET")
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
-                status = response.status
-        except urllib.error.HTTPError as exc:
-            status = exc.code
-        except Exception as exc:  # noqa: BLE001
-            status = f"error: {exc}"
-        check(f"GET {probe} answers 404", status == 404, f"got {status}")
+                metadata = json.load(response)
+            check("OAuth resource is the existing Nymrel app", metadata.get("resource") == REMOTE_RESOURCE)
+            check("OAuth issuer matches exactly", metadata.get("authorization_servers") == [args.issuer])
+            check("OAuth scopes are only the two reads", set(metadata.get("scopes_supported", [])) == REMOTE_SCOPES)
+        except (urllib.error.URLError, ValueError) as exc:
+            check("OAuth metadata is available", False, str(exc))
+
+        try:
+            denied = rpc(base, "tools/call", {"name": "nymrel_remote_list_devices", "arguments": {}})["result"]
+            challenges = (denied.get("_meta") or {}).get("mcp/www_authenticate", [])
+            challenged = bool(denied.get("isError")) and any(
+                REMOTE_METADATA in value and all(scope in value for scope in REMOTE_SCOPES)
+                for value in challenges
+            )
+        except (urllib.error.URLError, ValueError, KeyError):
+            challenged = False
+        check("private read requires caller OAuth", challenged)
+    else:
+        # 4. OAuth discovery probes answer 404. A 200 here made Claude.ai read
+        #    this authless server as a broken OAuth provider and refuse to connect
+        #    ("Couldn't register with Nymrel Tools's sign-in service", 2026-08-18).
+        #    The 404 is what tells an MCP client to proceed unauthenticated.
+        for probe in (
+            "/.well-known/oauth-protected-resource",
+            "/.well-known/oauth-authorization-server",
+            "/.well-known/openid-configuration",
+            "/register",
+        ):
+            request = urllib.request.Request(f"{base}{probe}", method="GET")
+            try:
+                with urllib.request.urlopen(request, timeout=30) as response:
+                    status = response.status
+            except urllib.error.HTTPError as exc:
+                status = exc.code
+            except Exception as exc:  # noqa: BLE001
+                status = f"error: {exc}"
+            check(f"GET {probe} answers 404", status == 404, f"got {status}")
 
     if failures:
         print(f"LIVE CONTRACT: {len(failures)} FAILURE(S)")
