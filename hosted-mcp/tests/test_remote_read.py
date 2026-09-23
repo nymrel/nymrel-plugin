@@ -1,4 +1,5 @@
 """Synthetic-only tests; never contact a device or production issuer."""
+import base64
 import json
 import os
 import sys
@@ -8,16 +9,25 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import httpx
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
-from jose import jwt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "api"))
 import index
 import nymrel_remote_read as remote
 
 HEADERS = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
+
+
+def _encode_jwt(claims, private_key):
+    def encode(value):
+        raw = json.dumps(value, separators=(",", ":")).encode("utf-8")
+        return base64.urlsafe_b64encode(raw).rstrip(b"=")
+
+    signing_input = b".".join((encode({"alg": "RS256", "typ": "JWT", "kid": "fixture"}), encode(claims)))
+    signature = private_key.sign(signing_input, padding.PKCS1v15(), hashes.SHA256())
+    return b".".join((signing_input, base64.urlsafe_b64encode(signature).rstrip(b"="))).decode("ascii")
 
 
 class RemoteTests(unittest.IsolatedAsyncioTestCase):
@@ -96,7 +106,7 @@ class RemoteTests(unittest.IsolatedAsyncioTestCase):
     async def test_upstream_auth_redirect_and_token_echo_are_not_exposed(self):
         real_client = httpx.AsyncClient
         for status in (401, 403, 302, 500, 200):
-            def handler(request):
+            def handler(request, status=status):
                 return httpx.Response(status, headers={"location": "https://untrusted.test"}, json={"jsonrpc": "2.0", "id": "nymrel-remote-read", "result": {"content": [{"type": "text", "text": "fixture-read"}]}})
             with patch.object(remote.httpx, "AsyncClient", side_effect=lambda **kwargs: real_client(transport=httpx.MockTransport(handler), **kwargs)):
                 result = await remote.proxy_read("list_devices", {}, "fixture-read")
@@ -111,15 +121,13 @@ class RemoteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(verifier.issuer, issuer)
         self.assertEqual(verifier.audience, remote.RESOURCE)
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        private = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
         public = key.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
         for audience, token_issuer, allowed in ((remote.RESOURCE, issuer, True), (remote.BACKEND, issuer, False), (remote.RESOURCE, issuer.rstrip("/"), False)):
-            encoded = jwt.encode({"iss": token_issuer, "aud": audience, "sub": "fixture", "exp": int(time.time()) + 60, "scope": " ".join(remote.SCOPES)}, private, algorithm="RS256", headers={"kid": "fixture"})
+            encoded = _encode_jwt({"iss": token_issuer, "aud": audience, "sub": "fixture", "exp": int(time.time()) + 60, "scope": " ".join(remote.SCOPES)}, key)
             with patch.object(verifier, "_get_verification_key", AsyncMock(return_value=public)):
                 token = await verifier.verify_token(encoded)
             self.assertEqual(token is not None, allowed)
 
     def test_conflicting_auth_features_fail_closed(self):
-        with patch.dict(os.environ, {index.private_handoff.FEATURE_ENV: "true"}):
-            with self.assertRaises(RuntimeError):
-                remote.validate_activation()
+        with patch.dict(os.environ, {index.private_handoff.FEATURE_ENV: "true"}), self.assertRaises(RuntimeError):
+            remote.validate_activation()

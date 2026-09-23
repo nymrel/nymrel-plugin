@@ -36,8 +36,7 @@ pending retain their call ID and use `nymrel_remote_get_read_result`.
 
 ## Verification
 
-Run `python -m unittest discover -s tests -v` from `hosted-mcp` (the existing
-JWT tests additionally require the development dependency `python-jose`).
+Run `python -m unittest discover -s tests -v` from `hosted-mcp`.
 Synthetic tests cover public catalog preservation, seven explicit OAuth
 policies, missing scopes, fixed upstream routing, result preservation, denied
 writes, issuer/audience rejection, and incompatible feature flags.
