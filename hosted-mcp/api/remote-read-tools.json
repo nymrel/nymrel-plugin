@@ -1,0 +1,260 @@
+[
+  {
+    "name": "list_devices",
+    "description": "Use this when the user wants to see paired Nymrel Remote devices and current reachability before working with one.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "annotations": {
+      "title": "List remote devices",
+      "readOnlyHint": true,
+      "openWorldHint": false,
+      "destructiveHint": false
+    }
+  },
+  {
+    "name": "read_file",
+    "description": "Use this when the user explicitly wants Nymrel Remote to read a UTF-8 text file with optional line pagination. Select the target with the optional device argument.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "device": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Paired device id or exact device name. Omit only when exactly one eligible device is available."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute path or path relative to the configured working directory."
+        },
+        "offset": {
+          "type": "integer",
+          "default": 0,
+          "description": "0-based start line; negative values read from the tail."
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "default": 1000
+        }
+      }
+    },
+    "annotations": {
+      "title": "read file",
+      "readOnlyHint": true,
+      "openWorldHint": false,
+      "destructiveHint": false
+    }
+  },
+  {
+    "name": "list_directory",
+    "description": "Use this when the user explicitly wants Nymrel Remote to list a directory tree with a bounded recursion depth. Select the target with the optional device argument.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "device": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Paired device id or exact device name. Omit only when exactly one eligible device is available."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute path or path relative to the configured working directory."
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8,
+          "default": 2
+        }
+      }
+    },
+    "annotations": {
+      "title": "list directory",
+      "readOnlyHint": true,
+      "openWorldHint": false,
+      "destructiveHint": false
+    }
+  },
+  {
+    "name": "get_file_info",
+    "description": "Use this when the user explicitly wants Nymrel Remote to return metadata for a file or directory. Select the target with the optional device argument.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "device": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Paired device id or exact device name. Omit only when exactly one eligible device is available."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute path or path relative to the configured working directory."
+        }
+      }
+    },
+    "annotations": {
+      "title": "get file info",
+      "readOnlyHint": true,
+      "openWorldHint": false,
+      "destructiveHint": false
+    }
+  },
+  {
+    "name": "search_files",
+    "description": "Use this when the user explicitly wants Nymrel Remote to search file and directory names below an allowed path. Select the target with the optional device argument.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "pattern"
+      ],
+      "properties": {
+        "device": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Paired device id or exact device name. Omit only when exactly one eligible device is available."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute path or path relative to the configured working directory."
+        },
+        "pattern": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "ignoreCase": {
+          "type": "boolean",
+          "default": true
+        },
+        "maxResults": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "default": 100
+        },
+        "maxDepth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 10
+        }
+      }
+    },
+    "annotations": {
+      "title": "search files",
+      "readOnlyHint": true,
+      "openWorldHint": false,
+      "destructiveHint": false
+    }
+  },
+  {
+    "name": "search_content",
+    "description": "Use this when the user explicitly wants Nymrel Remote to search UTF-8 file contents below an allowed path. Select the target with the optional device argument.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "pattern"
+      ],
+      "properties": {
+        "device": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Paired device id or exact device name. Omit only when exactly one eligible device is available."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute path or path relative to the configured working directory."
+        },
+        "pattern": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "filePattern": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "literalSearch": {
+          "type": "boolean",
+          "default": true
+        },
+        "ignoreCase": {
+          "type": "boolean",
+          "default": true
+        },
+        "maxResults": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "default": 100
+        },
+        "maxDepth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 10
+        }
+      }
+    },
+    "annotations": {
+      "title": "search content",
+      "readOnlyHint": true,
+      "openWorldHint": false,
+      "destructiveHint": false
+    }
+  },
+  {
+    "name": "get_read_result",
+    "description": "Retrieve the result of your pending Nymrel Remote read using its callId. If a file inspection returns pending, use this tool instead of submitting that inspection again. It never starts a new device operation. If still pending, wait briefly before checking again.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "callId"
+      ],
+      "properties": {
+        "callId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "annotations": {
+      "title": "Get remote read result",
+      "readOnlyHint": true,
+      "openWorldHint": false,
+      "destructiveHint": false
+    }
+  }
+]

@@ -28,6 +28,7 @@ from mcp.types import ListToolsRequest  # noqa: E402
 
 import nymrel_public_mcp_server as server  # noqa: E402
 import nymrel_private_handoff as private_handoff  # noqa: E402
+import nymrel_remote_read as remote_read  # noqa: E402
 
 from starlette.applications import Starlette  # noqa: E402
 
@@ -147,11 +148,13 @@ def nymrel_social_clip_score(transcript_text: str, target_platform: str = "tikto
 # token and the operation's exact scope. The public app below injects no auth
 # provider, so its live/default contract remains exactly four anonymous tools.
 private_handoff.register_private_handoff_tools(server.mcp)
+remote_read.validate_activation()
+remote_read.register_tools(server.mcp)
 
 
 def _tool_security_schemes(tool: Any) -> list[dict[str, Any]]:
     """Return one explicit per-tool auth policy for every published tool."""
-    if tool.name in private_handoff.PRIVATE_TOOL_NAMES:
+    if tool.name in (*private_handoff.PRIVATE_TOOL_NAMES, *remote_read.TOOL_NAMES):
         metadata = tool.meta or {}
         schemes = metadata.get("securitySchemes")
         if not isinstance(schemes, list) or not schemes:
@@ -477,6 +480,7 @@ def build_private_handoff_app(auth_provider):
     tests may still inject a synthetic provider. Both paths publish RFC 9728
     metadata and validate issuer, audience, expiry and the two handoff scopes.
     """
+    remote_read.validate_activation()
     if auth_provider is None:
         raise RuntimeError("Private handoff activation requires an AuthProvider.")
     if not private_handoff.private_handoff_enabled():
@@ -519,6 +523,29 @@ if private_handoff.private_handoff_enabled():
     app = build_private_handoff_app(
         private_handoff.configured_private_auth_provider()
     )
+
+
+def build_remote_read_app(auth_provider):
+    remote_read.validate_activation()
+    if auth_provider is None or not remote_read.enabled():
+        raise RuntimeError("Remote read requires an explicit feature flag and auth provider.")
+    routes = Starlette(routes=auth_provider.get_routes(mcp_path=MCP_PATH))
+
+    async def remote_app(scope, receive, send):
+        context = remote_read._AUTH_AVAILABLE.set(True)
+        try:
+            await _dispatch_app(scope, receive, send, oauth_routes_app=routes)
+        finally:
+            remote_read._AUTH_AVAILABLE.reset(context)
+
+    wrapped = remote_app
+    for middleware in reversed(auth_provider.get_middleware()):
+        wrapped = middleware.cls(wrapped, *middleware.args, **middleware.kwargs)
+    return wrapped
+
+
+if remote_read.enabled():
+    app = build_remote_read_app(remote_read.configured_auth_provider())
 
 
 # Aliases some platform adapters look for.
