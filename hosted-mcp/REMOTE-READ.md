@@ -45,3 +45,11 @@ Production acceptance still requires refreshing this existing app's tools,
 anonymous public-tool calls, real login and refresh, one approved local read,
 denial of parent/credential paths, and retrieval of a pending read. Do not
 claim ChatGPT local-file access from the synthetic tests alone.
+
+After activation, run `python hosted-mcp/scripts/verify_live_contract.py
+--remote-read --issuer <exact-published-issuer>` from the repository root.
+This checks the served eleven-tool catalog, per-tool OAuth policies, exact
+resource metadata and the unauthenticated private-tool challenge without
+transmitting a credential. The default invocation remains the four-tool
+pre-activation check. A passing public check still does not replace the
+authenticated ChatGPT conversation test.
