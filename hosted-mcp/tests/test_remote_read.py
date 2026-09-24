@@ -69,20 +69,75 @@ class RemoteTests(unittest.IsolatedAsyncioTestCase):
             default = (await self.request("tools/list", app=index.app)).json()["result"]["tools"]
         self.assertEqual({t["name"] for t in default}, set(index.PUBLIC_TOOL_NAMES))
 
-    async def test_missing_and_partial_auth_never_proxies(self):
+    async def test_protected_calls_challenge_at_http_and_tool_levels_without_proxying(self):
         with patch.object(remote, "proxy_read", new_callable=AsyncMock) as proxy:
-            for token in (None, "fixture-partial"):
-                response = await self.request("tools/call", {"name": "nymrel_remote_list_devices", "arguments": {}}, token)
-                result = response.json()["result"]
-                self.assertTrue(result["isError"])
-                self.assertIn(remote.METADATA, result["_meta"]["mcp/www_authenticate"][0])
+            for name in remote.TOOL_NAMES:
+                for token, status, error in ((None, 401, "invalid_token"),
+                                              ("invalid", 401, "invalid_token"),
+                                              ("fixture-partial", 403, "insufficient_scope")):
+                    with self.subTest(name=name, token=token):
+                        response = await self.request("tools/call", {"name": name, "arguments": {}}, token)
+                        self.assertEqual(response.status_code, status)
+                        self.assertEqual(response.headers["cache-control"], "no-store")
+                        result = response.json()["result"]
+                        self.assertTrue(result["isError"])
+                        challenge = result["_meta"]["mcp/www_authenticate"][0]
+                        self.assertEqual(response.headers["www-authenticate"], challenge)
+                        self.assertIn(remote.METADATA, challenge)
+                        self.assertIn(f'error="{error}"', challenge)
+                        self.assertIn('scope="devices:read tools:read"', challenge)
             proxy.assert_not_called()
+
+    async def test_challenge_survives_endpoint_aliases_and_vercel_rewrite(self):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app), base_url="https://test") as client:
+            for path in ("/mcp", "/server", "/sse", "/api/index?__path=%2Fmcp"):
+                with self.subTest(path=path):
+                    response = await client.post(path, headers=HEADERS, json={
+                        "jsonrpc": "2.0", "id": "auth-probe", "method": "tools/call",
+                        "params": {"name": "nymrel_remote_list_devices", "arguments": {}}})
+                    self.assertEqual(response.status_code, 401)
+                    self.assertEqual(response.json()["id"], "auth-probe")
+                    self.assertIn(remote.METADATA, response.headers["www-authenticate"])
+
+    async def test_anonymous_initialize_and_catalog_remain_available(self):
+        for method, params in (("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
+                                               "clientInfo": {"name": "fixture", "version": "1"}}),
+                               ("tools/list", {})):
+            response = await self.request(method, params)
+            self.assertEqual(response.status_code, 200)
+            self.assertNotIn("www-authenticate", response.headers)
+
+    def test_malformed_rpc_is_left_to_the_protocol_handler(self):
+        context = remote._AUTH_AVAILABLE.set(True)
+        try:
+            for body in (b"not-json", b"[]", b"null", b'"text"',
+                         b'{"jsonrpc":"2.0","id":1,"method":"tools/call","params":[]}'):
+                with self.subTest(body=body):
+                    self.assertIsNone(index._remote_read_auth_response(body))
+        finally:
+            remote._AUTH_AVAILABLE.reset(context)
+
+    async def test_tool_handler_still_challenges_without_http_gate(self):
+        context = remote._AUTH_AVAILABLE.set(True)
+        try:
+            tool = remote.RemoteReadTool(name="nymrel_remote_list_devices", backend_name="list_devices",
+                                         parameters={"type": "object", "properties": {}})
+            with patch.object(remote, "get_access_token", return_value=None), \
+                    patch.object(remote, "proxy_read", AsyncMock()) as proxy:
+                result = (await tool.run({})).to_mcp_result()
+            self.assertTrue(result.isError)
+            self.assertIn(remote.METADATA, result.meta["mcp/www_authenticate"][0])
+            proxy.assert_not_called()
+        finally:
+            remote._AUTH_AVAILABLE.reset(context)
 
     async def test_verified_token_and_pending_result_preserved(self):
         expected = remote.CallToolResult(content=[{"type": "text", "text": "pending"}], structuredContent={"pending": True, "call": {"id": "fixture-call"}}, isError=False)
         with patch.object(remote, "proxy_read", new_callable=AsyncMock, return_value=expected) as proxy:
             response = await self.request("tools/call", {"name": "nymrel_remote_read_file", "arguments": {"path": "fixture.md"}}, "fixture-read")
         proxy.assert_awaited_once_with("read_file", {"path": "fixture.md"}, "fixture-read")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("www-authenticate", response.headers)
         self.assertEqual(response.json()["result"]["structuredContent"], expected.structuredContent)
 
     async def test_writes_not_found_and_public_still_anonymous(self):
@@ -91,6 +146,8 @@ class RemoteTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(index.server, "_call_tool", return_value={"fixture": "public"}):
             response = await self.request("tools/call", {"name": "nymrel_social_clip_score", "arguments": {"transcript_text": "test"}})
         self.assertFalse(response.json()["result"].get("isError", False))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("www-authenticate", response.headers)
 
     async def test_fixed_transport_headers_and_response(self):
         seen = []
@@ -157,14 +214,17 @@ class RemoteTests(unittest.IsolatedAsyncioTestCase):
                           "exp": int(time.time()) + 60, "scope": " ".join(remote.SCOPES)}
                 expected = remote.CallToolResult(content=[{"type": "text", "text": "ok"}], isError=False)
                 cases = ({}, {"iss": issuer.rstrip("/") if issuer.endswith("/") else issuer + "/"},
-                         {"aud": remote.BACKEND}, {"scope": "tools:read"})
+                         {"aud": remote.BACKEND}, {"exp": int(time.time()) - 60}, {"scope": "tools:read"})
                 for changes in cases:
                     token = _encode_jwt({**claims, **changes}, key)
                     with patch.object(provider.token_verifier, "_get_verification_key", AsyncMock(return_value=public)), \
                             patch.object(remote, "proxy_read", AsyncMock(return_value=expected)) as proxy:
                         response = await self.request("tools/call", {"name": "nymrel_remote_list_devices", "arguments": {}}, token, app)
                     if not changes:
+                        self.assertEqual(response.status_code, 200)
                         self.assertFalse(response.json()["result"].get("isError", False))
                         proxy.assert_awaited_once_with("list_devices", {}, token)
                     else:
+                        self.assertEqual(response.status_code, 403 if "scope" in changes else 401)
+                        self.assertIn(remote.METADATA, response.headers["www-authenticate"])
                         proxy.assert_not_called()

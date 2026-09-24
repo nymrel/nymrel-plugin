@@ -80,10 +80,10 @@ def visible(_context):
     return enabled() and not handoff.private_handoff_enabled() and _AUTH_AVAILABLE.get()
 
 
-def auth_failure():
+def auth_failure(error="insufficient_scope"):
     return CallToolResult(isError=True, content=[{"type": "text", "text": "Connect an approved Nymrel account to inspect its paired files."}],
         _meta={"mcp/www_authenticate": [
-            f'Bearer resource_metadata="{METADATA}", error="insufficient_scope", '
+            f'Bearer resource_metadata="{METADATA}", error="{error}", '
             'error_description="Connect with both Remote read permissions", '
             'scope="devices:read tools:read"']})
 
