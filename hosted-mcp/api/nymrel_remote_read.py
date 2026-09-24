@@ -5,11 +5,12 @@ import json
 import os
 from contextvars import ContextVar
 from pathlib import Path
+from typing import Annotated
 from urllib.parse import urlparse
 
 import httpx
 from jsonschema import validate
-from pydantic import AnyHttpUrl, PrivateAttr
+from pydantic import AnyHttpUrl, PrivateAttr, TypeAdapter, UrlConstraints
 from fastmcp.server.auth import RemoteAuthProvider
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from fastmcp.server.dependencies import get_access_token
@@ -57,12 +58,19 @@ def configured_auth_provider():
         raise RuntimeError("Remote read feature must be enabled before configuring auth.")
     issuer = _https_setting(ISSUER_ENV)
     jwks = _https_setting(JWKS_ENV)
+    # OAuth issuer identifiers are exact strings. Ordinary AnyHttpUrl adds a
+    # slash to origin-only values, including when metadata is serialized.
+    issuer_url = TypeAdapter(
+        Annotated[AnyHttpUrl, UrlConstraints(preserve_empty_path=True)]
+    ).validate_python(issuer)
+    if str(issuer_url) != issuer:
+        raise RuntimeError(f"Set {ISSUER_ENV} to its exact canonical HTTPS provider value.")
     # Preserve issuer trailing slash and provider-specific JWKS path exactly.
     return RemoteAuthProvider(
         token_verifier=JWTVerifier(jwks_uri=jwks, issuer=issuer,
                                   audience=RESOURCE, algorithm="RS256",
                                   required_scopes=None, ssrf_safe=True),
-        authorization_servers=[AnyHttpUrl(issuer)],
+        authorization_servers=[issuer_url],
         base_url="https://mcp.nymrel.com", scopes_supported=SCOPES,
         resource_name="Nymrel Remote read access",
     )
