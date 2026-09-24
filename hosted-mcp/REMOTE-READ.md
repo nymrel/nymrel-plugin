@@ -46,6 +46,47 @@ anonymous public-tool calls, real login and refresh, one approved local read,
 denial of parent/credential paths, and retrieval of a pending read. Do not
 claim ChatGPT local-file access from the synthetic tests alone.
 
+### Bounded CLI acceptance probe
+
+After the issuer, backend profile, subject mapping, and gateway activation are
+configured, `scripts/accept_remote_file_read.py` can check the exact published
+issuer/resource metadata, exactly one named `ChatGPTStudio` device, one
+user-approved file path with its expected SHA-256, and one parent or credential
+path. It asks for a short-lived access token through hidden terminal input.
+The token is sent only as the bearer header to the fixed MCP endpoint; it is
+not accepted as a command-line argument, written to disk, or printed. The
+probe requires an interactive terminal and aborts if hidden-input handling
+would fall back to echoing input. It reports only pass/fail labels and
+suppresses paths, response details,
+and file contents. It refuses authenticated calls unless the exact issuer
+(including a trailing slash when published) and resource metadata match.
+Completed reads must return the exact structured path and content matching the
+provided SHA-256. Pending reads are retrieved by call ID without resubmitting
+the original read; a still-pending result is reported as not validated. A path
+denial counts only when the structured result names that exact path and its
+reason is the exact outside-allowed-directory error code or an anchored
+boundary-denial message.
+
+Example (choose paths appropriate to the paired device and keep the approved
+file limited to content the user has authorized):
+
+```powershell
+python hosted-mcp/scripts/accept_remote_file_read.py `
+  --issuer 'https://your-exact-issuer/' `
+  --device-name 'ChatGPTStudio' `
+  --approved-path 'C:\Users\you\ChatGPTStudio\reports\automation\chatgptstudio-share-20260922\INDEX.md' `
+  --expected-sha256 '<sha256-of-approved-file>' `
+  --denied-path 'C:\Users\you\ChatGPTStudio\reports\automation\credentials'
+```
+
+From `hosted-mcp/`, run the fixture-only tests with
+`python -m unittest tests.test_remote_file_acceptance -v`.
+This CLI checks a bounded HTTP/MCP result contract only. It is not a substitute
+for a regular ChatGPT conversation: after the CLI passes, refresh the existing
+app connection and perform the approved read and denied-path check in ChatGPT
+itself before claiming host acceptance. A CLI or fixture result cannot prove
+that ChatGPT offered OAuth or completed the read in conversation.
+
 After activation, run `python hosted-mcp/scripts/verify_live_contract.py
 --remote-read --issuer <exact-published-issuer>` from the repository root.
 This checks the served eleven-tool catalog, per-tool OAuth policies, exact
