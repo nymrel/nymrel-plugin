@@ -85,17 +85,16 @@ def call_tool(opener, token: str, name: str, arguments: dict) -> dict:
 
 
 def exact_device_id(result: dict, expected_name: str) -> str | None:
-    """Return the ID for one exact isolated-device match; fail closed otherwise."""
+    """Return an immutable ID only when this is the sole visible device."""
     structured = result.get("structuredContent")
     devices = structured.get("devices") if isinstance(structured, dict) else None
-    if not isinstance(devices, list):
+    if not isinstance(devices, list) or len(devices) != 1:
         return None
-    matches = [device for device in devices if isinstance(device, dict) and device.get("name") == expected_name]
-    if len(matches) != 1:
+    device = devices[0]
+    if not isinstance(device, dict) or device.get("name") != expected_name:
         return None
-    device = matches[0]
     identifier = device.get("id")
-    return identifier if isinstance(identifier, str) and identifier else expected_name
+    return identifier if isinstance(identifier, str) and identifier.strip() else None
 
 
 def completed_read_matches(result: dict, expected_path: str, expected_sha256: str) -> bool:
@@ -188,9 +187,9 @@ def main(argv: list[str] | None = None) -> int:
         device_id = exact_device_id(devices, args.device_name)
         del devices
         if not device_id:
-            print("FAIL one exact isolated ChatGPTStudio device was not found")
+            print("FAIL the complete device list is not exactly one ChatGPTStudio device with an immutable ID")
             return 1
-        print("ok   exact isolated ChatGPTStudio device found")
+        print("ok   exclusive ChatGPTStudio device visibility and immutable ID verified")
 
         approved_args = {"path": args.approved_path, "device": device_id}
         approved = call_tool(opener, token, READ_TOOL, approved_args)

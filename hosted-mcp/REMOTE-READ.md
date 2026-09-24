@@ -53,6 +53,10 @@ configured, `scripts/accept_remote_file_read.py` can check the exact published
 issuer/resource metadata, exactly one named `ChatGPTStudio` device, one
 user-approved file path with its expected SHA-256, and one parent or credential
 path. It asks for a short-lived access token through hidden terminal input.
+The entire visible `list_devices` result must contain exactly one device, named
+`ChatGPTStudio`, with a nonempty immutable device ID; any additional visible
+device (including a broad workstation such as `JalenPC`) stops the probe. This
+is an exclusive tenant visibility check for the isolated ChatGPTStudio device.
 The token is sent only as the bearer header to the fixed MCP endpoint; it is
 not accepted as a command-line argument, written to disk, or printed. The
 probe requires an interactive terminal and aborts if hidden-input handling
