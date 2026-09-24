@@ -51,6 +51,11 @@ class RemoteTests(unittest.IsolatedAsyncioTestCase):
             return await client.post("/mcp", headers=headers,
                 json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}})
 
+    def test_discovery_names_remote_tools_when_remote_auth_is_active(self):
+        discovery = index._discovery(True)
+        self.assertEqual(discovery["authentication"], "optional-oauth2")
+        self.assertEqual(discovery["private_tools"], sorted(remote.TOOL_NAMES))
+
     async def test_catalog_and_default_hidden(self):
         result = (await self.request("tools/list")).json()["result"]
         tools = {t["name"]: t for t in result["tools"]}
