@@ -178,10 +178,19 @@ class RemoteFileAcceptanceTests(unittest.TestCase):
         self.assertEqual([item[0] for item in calls], [probe.DEVICES_TOOL, probe.READ_TOOL, "nymrel_remote_get_read_result", probe.READ_TOOL])
         self.assertIn("not_validated", output.getvalue())
 
-    def test_device_must_match_exactly_once(self):
+    def test_device_list_must_be_exclusive_and_have_immutable_id(self):
         self.assertIsNone(probe.exact_device_id({"structuredContent": {"devices": []}}, "ChatGPTStudio"))
         self.assertIsNone(probe.exact_device_id({"structuredContent": {"devices": [
             {"name": "ChatGPTStudio", "id": "one"}, {"name": "ChatGPTStudio", "id": "two"}
+        ]}}, "ChatGPTStudio"))
+        self.assertIsNone(probe.exact_device_id({"structuredContent": {"devices": [
+            {"name": "ChatGPTStudio", "id": "studio-id"}, {"name": "JalenPC", "id": "broad-device-id"}
+        ]}}, "ChatGPTStudio"))
+        self.assertIsNone(probe.exact_device_id({"structuredContent": {"devices": [
+            {"name": "ChatGPTStudio"}
+        ]}}, "ChatGPTStudio"))
+        self.assertIsNone(probe.exact_device_id({"structuredContent": {"devices": [
+            {"name": "ChatGPTStudio", "id": " "}
         ]}}, "ChatGPTStudio"))
 
     def test_metadata_mismatch_stops_before_prompt_or_tool_calls(self):
