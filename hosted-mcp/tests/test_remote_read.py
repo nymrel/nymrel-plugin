@@ -136,3 +136,35 @@ class RemoteTests(unittest.IsolatedAsyncioTestCase):
     def test_conflicting_auth_features_fail_closed(self):
         with patch.dict(os.environ, {index.private_handoff.FEATURE_ENV: "true"}), self.assertRaises(RuntimeError):
             remote.validate_activation()
+
+    async def test_metadata_and_jwt_use_the_same_exact_issuer(self):
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        public = key.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+        for issuer in ("https://issuer.example", "https://issuer.example/", "https://issuer.example/oauth"):
+            with self.subTest(issuer=issuer), patch.dict(os.environ, {
+                remote.ISSUER_ENV: issuer,
+                remote.JWKS_ENV: "https://issuer.example/.well-known/jwks.json",
+            }):
+                provider = remote.configured_auth_provider()
+                app = index.build_remote_read_app(provider)
+                async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://test") as client:
+                    metadata = await client.get("/.well-known/oauth-protected-resource/mcp")
+                self.assertEqual(metadata.status_code, 200)
+                self.assertEqual(metadata.json()["authorization_servers"], [issuer])
+                self.assertEqual(metadata.json()["resource"], remote.RESOURCE)
+                self.assertEqual(provider.token_verifier.issuer, issuer)
+                claims = {"iss": issuer, "aud": remote.RESOURCE, "sub": "fixture",
+                          "exp": int(time.time()) + 60, "scope": " ".join(remote.SCOPES)}
+                expected = remote.CallToolResult(content=[{"type": "text", "text": "ok"}], isError=False)
+                cases = ({}, {"iss": issuer.rstrip("/") if issuer.endswith("/") else issuer + "/"},
+                         {"aud": remote.BACKEND}, {"scope": "tools:read"})
+                for changes in cases:
+                    token = _encode_jwt({**claims, **changes}, key)
+                    with patch.object(provider.token_verifier, "_get_verification_key", AsyncMock(return_value=public)), \
+                            patch.object(remote, "proxy_read", AsyncMock(return_value=expected)) as proxy:
+                        response = await self.request("tools/call", {"name": "nymrel_remote_list_devices", "arguments": {}}, token, app)
+                    if not changes:
+                        self.assertFalse(response.json()["result"].get("isError", False))
+                        proxy.assert_awaited_once_with("list_devices", {}, token)
+                    else:
+                        proxy.assert_not_called()
