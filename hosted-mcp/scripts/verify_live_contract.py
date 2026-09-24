@@ -68,6 +68,23 @@ def rpc(base: str, method: str, params: dict) -> dict:
     return json.loads(raw)
 
 
+def remote_auth_probe(base: str, token: str | None = None) -> tuple[int, str, dict]:
+    """Inspect the HTTP challenge as well as the MCP error; never send real tokens."""
+    headers = dict(HEADERS)
+    if token is not None:
+        headers["Authorization"] = f"Bearer {token}"
+    body = {"jsonrpc": "2.0", "id": "auth-probe", "method": "tools/call",
+            "params": {"name": "nymrel_remote_list_devices", "arguments": {}}}
+    request = urllib.request.Request(f"{base}/mcp", data=json.dumps(body).encode(),
+                                     headers=headers, method="POST")
+    try:
+        response = urllib.request.urlopen(request, timeout=30)
+    except urllib.error.HTTPError as exc:
+        response = exc
+    with response:
+        return response.status, response.headers.get("WWW-Authenticate", ""), json.load(response)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("base_url", nargs="?", default="https://mcp.nymrel.com")
@@ -157,16 +174,19 @@ def main() -> int:
         except (urllib.error.URLError, ValueError) as exc:
             check("OAuth metadata is available", False, str(exc))
 
-        try:
-            denied = rpc(base, "tools/call", {"name": "nymrel_remote_list_devices", "arguments": {}})["result"]
-            challenges = (denied.get("_meta") or {}).get("mcp/www_authenticate", [])
-            challenged = bool(denied.get("isError")) and any(
-                REMOTE_METADATA in value and all(scope in value for scope in REMOTE_SCOPES)
-                for value in challenges
-            )
-        except (urllib.error.URLError, ValueError, KeyError):
-            challenged = False
-        check("private read requires caller OAuth", challenged)
+        for token, label in ((None, "private read requires caller OAuth"),
+                             ("synthetic-invalid-contract-probe", "invalid token returns HTTP OAuth challenge")):
+            try:
+                status, header, payload = remote_auth_probe(base, token)
+                denied = payload["result"]
+                challenges = (denied.get("_meta") or {}).get("mcp/www_authenticate", [])
+                challenged = (status == 401 and bool(denied.get("isError"))
+                              and header in challenges and REMOTE_METADATA in header
+                              and all(scope in header for scope in REMOTE_SCOPES)
+                              and 'error="invalid_token"' in header and 'error_description="' in header)
+            except (urllib.error.URLError, ValueError, KeyError):
+                challenged = False
+            check(label, challenged)
     else:
         # 4. OAuth discovery probes answer 404. A 200 here made Claude.ai read
         #    this authless server as a broken OAuth provider and refuse to connect

@@ -243,7 +243,7 @@ async def _close_lifespan_for_current_loop() -> None:
         await task
 
 
-async def _send_json(send, status: int, body: dict[str, Any]) -> None:
+async def _send_json(send, status: int, body: dict[str, Any], *, headers=()) -> None:
     raw = json.dumps(body, separators=(",", ":"), ensure_ascii=True).encode("ascii")
     await send(
         {
@@ -253,10 +253,41 @@ async def _send_json(send, status: int, body: dict[str, Any]) -> None:
                 (b"content-type", b"application/json"),
                 (b"content-length", str(len(raw)).encode("ascii")),
                 (b"cache-control", b"no-store"),
+                *headers,
             ],
         }
     )
     await send({"type": "http.response.body", "body": raw})
+
+
+def _remote_read_auth_response(body: bytes):
+    """Challenge only protected Remote calls, using the provider-verified context.
+
+    Public calls and discovery stay anonymous. The tool handler retains its own
+    check and MCP challenge for callers that bypass this HTTP entrypoint.
+    """
+    if not remote_read.visible(None):
+        return None
+    try:
+        request = json.loads(body)
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if (not isinstance(request, dict) or request.get("jsonrpc") != "2.0"
+            or request.get("method") != "tools/call"
+            or type(request.get("id")) not in (str, int)):
+        return None
+    params = request.get("params")
+    if not isinstance(params, dict) or params.get("name") not in remote_read.TOOL_NAMES:
+        return None
+    token = remote_read.get_access_token()
+    if token is not None and set(remote_read.SCOPES).issubset(token.scopes):
+        return None
+    status = 401 if token is None else 403
+    result = remote_read.auth_failure("invalid_token" if token is None else "insufficient_scope")
+    challenge = result.meta["mcp/www_authenticate"][0]
+    payload = {"jsonrpc": "2.0", "id": request["id"],
+               "result": result.model_dump(by_alias=True, exclude_none=True)}
+    return status, payload, challenge
 
 
 async def _read_body(receive) -> bytes:
@@ -459,6 +490,12 @@ async def _dispatch_app(
             )
             return
 
+        denial = _remote_read_auth_response(body)
+        if denial is not None:
+            status, payload, challenge = denial
+            await _send_json(send, status, payload,
+                             headers=((b"www-authenticate", challenge.encode("ascii")),))
+            return
         receive = _replay(body)
 
     await _ensure_lifespan()
