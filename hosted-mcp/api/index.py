@@ -305,11 +305,16 @@ DISCOVERY = {
 def _discovery(private_auth_available: bool) -> dict[str, Any]:
     if not private_auth_available:
         return DISCOVERY
+    private_tools = (
+        sorted(remote_read.TOOL_NAMES)
+        if remote_read.enabled()
+        else sorted(private_handoff.PRIVATE_TOOL_NAMES)
+    )
     return {
         **DISCOVERY,
         "name": "Nymrel Tool Suite",
         "authentication": "optional-oauth2",
-        "private_tools": sorted(private_handoff.PRIVATE_TOOL_NAMES),
+        "private_tools": private_tools,
     }
 
 
