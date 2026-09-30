@@ -31,6 +31,11 @@ The hosted service is the source of truth for production tools. The TypeScript
 server in this folder remains a local development harness for the polished
 Website Audit widget; it is not the production MCP endpoint.
 
+The hosted Python service now also contains a separately activated audit app,
+explicit public result schemas, and resumable-read guidance. Its view consumes
+the real hosted result shape; it does not depend on the TypeScript harness.
+See [the implementation record](docs/chatgpt-workflow-adoption-2026-09-29.md).
+
 ## Product boundary
 
 - Audits one public HTTP(S) page plus conventional discovery files on the same origin.
@@ -95,10 +100,11 @@ surfaces. The Nymrel package has the required manifest, registered app binding,
 skills, production MCP URL, review cases, and publisher links. It is not public
 until the OpenAI submission portal records an approved, published version.
 
-The installed ChatGPT connection must be refreshed before submission because
-its current cached tool snapshot still exposes the retired seven-tool catalog;
-the live endpoint and repository contract expose exactly four reviewed public
-tools. Anthropic review remains separate.
+Refresh the installed ChatGPT tool catalog before submission and compare it
+with the deployed endpoint. The 2026-09-29 production probe found four public
+tools plus seven OAuth-protected Remote read tools; it found no UI resources.
+The new audit app remains disabled by default until target-host acceptance.
+Anthropic review remains separate.
 
 See `CONTRIBUTING.md` for the complete local gate and `SECURITY.md` for private
 vulnerability reporting. GitHub Actions execution is separate evidence: a

@@ -48,6 +48,14 @@ jobs:
       - name: Verify TypeScript, local MCP, and CI contracts
         run: corepack npm@11.19.1 run verify
 
+      - name: Install the audit app test browser
+        if: matrix.os == 'ubuntu-24.04' && matrix.node == '24.20.0'
+        run: corepack npm@11.19.1 exec -- playwright install --with-deps chromium
+
+      - name: Verify hosted audit app with a synthetic MCP host
+        if: matrix.os == 'ubuntu-24.04' && matrix.node == '24.20.0'
+        run: node scripts/audit-ui-smoke.mjs
+
       - name: Verify generated distribution is committed
         run: git diff --exit-code -- dist
 

@@ -13,6 +13,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
+from result_fixtures import AUDIT
 import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -430,7 +431,7 @@ class HostedPrivateHandoffTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_public_tools_remain_available_without_auth_when_enabled(self):
         stub = Mock()
-        stub.call.return_value = {"score": 88, "grade": "A"}
+        stub.call.return_value = dict(AUDIT)
         call = _rpc(
             "tools/call",
             {"name": "nymrel_audit_website", "arguments": {"url": "https://example.com"}},
@@ -440,7 +441,7 @@ class HostedPrivateHandoffTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(public_server, "_client", return_value=stub):
             async with await self._client() as client:
                 response = await client.post("/mcp", headers=MCP_HEADERS, json=call)
-        self.assertEqual(_tool_payload(response), {"score": 88, "grade": "A"})
+        self.assertEqual(_tool_payload(response), dict(AUDIT))
 
     async def test_challenge_path_matches_and_delegates_to_provider_metadata(self):
         expected = str(

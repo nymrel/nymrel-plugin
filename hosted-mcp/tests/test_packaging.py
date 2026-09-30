@@ -14,6 +14,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import httpx
+from result_fixtures import AUDIT
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "api"))
 
@@ -127,7 +128,7 @@ class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_read_tool_needs_no_auth_and_returns_api_json_unchanged(self):
         stub = Mock()
-        stub.call.return_value = {"score": 88, "grade": "A"}
+        stub.call.return_value = dict(AUDIT)
         call = _rpc(
             "tools/call",
             {"name": "nymrel_audit_website", "arguments": {"url": "https://example.com"}},
@@ -137,7 +138,7 @@ class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
                 response = await client.post("/mcp", headers=MCP_HEADERS, json=call)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(_tool_payload(response), {"score": 88, "grade": "A"})
+        self.assertEqual(_tool_payload(response), dict(AUDIT))
 
     async def test_path_aliases_all_reach_the_mcp_endpoint(self):
         async with await self._client() as client:
@@ -201,7 +202,7 @@ class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
     async def test_tool_result_is_single_encoded(self):
         """One parse must reach the object - no JSON quoted inside JSON."""
         stub = Mock()
-        stub.call.return_value = {"score": 88, "grade": "A"}
+        stub.call.return_value = dict(AUDIT)
         call = _rpc(
             "tools/call",
             {"name": "nymrel_audit_website", "arguments": {"url": "https://example.com"}},
@@ -212,11 +213,11 @@ class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
 
         result = response.json()["result"]
         once = json.loads(result["content"][0]["text"])
-        self.assertEqual(once, {"score": 88, "grade": "A"})
+        self.assertEqual(once, dict(AUDIT))
         self.assertNotIsInstance(once, str, "text content still holds a JSON string")
         self.assertEqual(
             result["structuredContent"],
-            {"score": 88, "grade": "A"},
+            dict(AUDIT),
             "structuredContent must be the object, not {'result': '<json string>'}",
         )
 
@@ -272,7 +273,7 @@ class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
             base_url="https://api.example.test/api/v1/tools",
             requester=lambda *a, **k: NotDeployed(),
         )
-        sentinel = {"url": "https://example.com", "score": 42, "grade": "F"}
+        sentinel = {**AUDIT, "url": "https://example.com", "score": 42, "grade": "F"}
         with patch.object(server, "_client", return_value=real_client), patch.object(
             server.native_audit, "audit_website", return_value=sentinel
         ) as local:

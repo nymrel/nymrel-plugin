@@ -130,6 +130,18 @@ async def proxy_read(name, arguments, bearer):
         if parsed.meta and "mcp/www_authenticate" in parsed.meta:
             return auth_failure()
         if parsed.structuredContent and parsed.structuredContent.get("pending") is True:
+            state = parsed.structuredContent
+            call = state.get("call")
+            nested_id = call.get("id") if isinstance(call, dict) else None
+            top_id = state.get("callId")
+            call_id = nested_id if nested_id is not None else top_id
+            if (parsed.isError or not isinstance(call_id, str) or not call_id.strip()
+                    or len(call_id) > 512 or (nested_id is not None and top_id is not None and nested_id != top_id)):
+                return failure()
+            parsed.meta = {**(parsed.meta or {}), "nymrel/readState": {
+                "state": "pending", "callId": call_id,
+                "resumeTool": "nymrel_remote_get_read_result", "resubmitOriginal": False,
+            }}
             parsed.content.append(TextContent(type="text", text="Retrieve this pending read with nymrel_remote_get_read_result and the returned call ID; do not resubmit the original read."))
         return parsed
     except (httpx.HTTPError, ValueError, KeyError, TypeError):
