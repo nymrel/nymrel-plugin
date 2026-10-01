@@ -23,7 +23,8 @@ developer-mode connection is not public distribution.
 ## Live bindings
 
 - ChatGPT app: the `.app.json` file binds the installed plugin to the registered Nymrel app.
-- Codex plugin: the `.codex-plugin/plugin.json` manifest discovers both skills, the app, and remote MCP configuration.
+- Portable plugin: `plugin.json` and `mcp.json` declare Agent Plugins 1.0 metadata and the existing hosted connection; both skills and the existing app binding are preserved.
+- Codex plugin: the `.codex-plugin/plugin.json` compatibility manifest discovers both skills, the app, and remote MCP configuration.
 - Claude plugin: the `.claude-plugin/plugin.json` manifest discovers the remote MCP configuration; Claude publication remains separate.
 - MCP: every host connects to `https://mcp.nymrel.com/mcp` through the root `.mcp.json` file.
 
@@ -35,6 +36,12 @@ The hosted Python service now also contains a separately activated audit app,
 explicit public result schemas, and resumable-read guidance. Its view consumes
 the real hosted result shape; it does not depend on the TypeScript harness.
 See [the implementation record](docs/chatgpt-workflow-adoption-2026-09-29.md).
+
+The public tool workbench adds a shared view for all four tools, with global
+and thread entrypoints, browser display preferences, and explicit sharing of
+results into conversation context. It uses the existing APIs and makes no
+data-tool call on launch. `NYMREL_TOOLS_UI_ENABLED` is independently disabled
+by default pending host acceptance. See [the extension record](docs/plugin-extensions-2026-09-30.md).
 
 ## Product boundary
 

@@ -52,9 +52,9 @@ jobs:
         if: matrix.os == 'ubuntu-24.04' && matrix.node == '24.20.0'
         run: corepack npm@11.19.1 exec -- playwright install --with-deps chromium
 
-      - name: Verify hosted audit app with a synthetic MCP host
+      - name: Verify hosted apps with a synthetic MCP host
         if: matrix.os == 'ubuntu-24.04' && matrix.node == '24.20.0'
-        run: node scripts/audit-ui-smoke.mjs
+        run: corepack npm@11.19.1 run test:ui
 
       - name: Verify generated distribution is committed
         run: git diff --exit-code -- dist

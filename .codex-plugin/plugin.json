@@ -1,6 +1,6 @@
 {
   "name": "nymrel",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Bring a website, product idea, or client need to Nymrel from ChatGPT and Codex.",
   "author": {
     "name": "Nymrel",
@@ -23,8 +23,8 @@
   "apps": "./.app.json",
   "interface": {
     "displayName": "Nymrel",
-    "shortDescription": "Build briefs and live Nymrel studio tools.",
-    "longDescription": "Tag Nymrel in ChatGPT or Codex to turn an idea into a scoped build brief, find the right Nymrel service, or use Nymrel's live website, domain, golf, and social tools. The public tools are read-only and state their evidence and limitations.",
+    "shortDescription": "Live tools and build briefs",
+    "longDescription": "Tag Nymrel in ChatGPT or Codex to turn an idea into a scoped build brief, find the right Nymrel service, or use Nymrel's live website, domain, golf, and social tools. The public tools are read-only and state their evidence and limitations. A shared public-tool workbench is available when the server advertises its optional MCP App.",
     "developerName": "Nymrel",
     "category": "Productivity",
     "capabilities": [

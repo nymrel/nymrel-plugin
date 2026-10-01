@@ -1,0 +1,48 @@
+{
+  "name": "nymrel",
+  "version": "1.4.0",
+  "description": "Bring a website, product idea, or client need to Nymrel from ChatGPT and Codex.",
+  "author": {
+    "name": "Nymrel",
+    "email": "contact@nymrel.com",
+    "url": "https://nymrel.com"
+  },
+  "homepage": "https://nymrel.com",
+  "repository": "https://github.com/nymrel/nymrel-plugin",
+  "license": "MIT",
+  "keywords": [
+    "product-studio",
+    "client-brief",
+    "website-audit",
+    "seo",
+    "ai-discoverability",
+    "nymrel"
+  ],
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Nymrel",
+        "shortDescription": "Live tools and build briefs",
+        "longDescription": "Tag Nymrel in ChatGPT or Codex to turn an idea into a scoped build brief, find the right Nymrel service, or use Nymrel's live website, domain, golf, and social tools. The public tools are read-only and state their evidence and limitations. A shared public-tool workbench is available when the server advertises its optional MCP App.",
+        "developerName": "Nymrel",
+        "category": "Productivity",
+        "capabilities": [
+          "Skills",
+          "Remote MCP",
+          "Read-only tools"
+        ],
+        "websiteURL": "https://nymrel.com",
+        "privacyPolicyURL": "https://nymrel.com/privacy",
+        "termsOfServiceURL": "https://nymrel.com/terms",
+        "brandColor": "#A8541F",
+        "defaultPrompt": [
+          "Turn my idea into a Nymrel-ready build brief.",
+          "Audit my website and prioritize the fixes.",
+          "Help me choose the right Nymrel service."
+        ]
+      },
+      "apps": "./.app.json"
+    }
+  }
+}

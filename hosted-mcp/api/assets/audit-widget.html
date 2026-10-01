@@ -24,6 +24,7 @@
   'use strict';
   const byId = id => document.getElementById(id);
   let requestId = 0;
+  let fullscreenRequested = false;
   const pending = new Map();
   function notify(method, params = {}) { parent.postMessage({jsonrpc:'2.0',method,params}, '*'); }
   function request(method, params) {
@@ -39,6 +40,12 @@
     if (value.theme === 'dark' || value.theme === 'light') document.documentElement.style.colorScheme = value.theme;
     for (const [key, val] of Object.entries(value.styles?.variables || {})) {
       if (/^--(?:color|font|border|radius)-[a-z0-9-]+$/.test(key) && typeof val === 'string') document.documentElement.style.setProperty(key, val);
+    }
+  }
+  function preferFullscreen(value) {
+    if (!fullscreenRequested && value?.displayMode === 'inline' && value?.availableDisplayModes?.includes('fullscreen')) {
+      fullscreenRequested = true;
+      request('ui/request-display-mode', {mode:'fullscreen'}).then(result => context({displayMode:result?.mode})).catch(() => {});
     }
   }
   function render(result) {
@@ -69,12 +76,12 @@
       if (message.error) entry.reject(new Error('Host request failed')); else entry.resolve(message.result);
     } else if (message.method === 'ui/notifications/tool-result') render(message.params);
     else if (message.method === 'ui/notifications/tool-input') {byId('report').hidden = true; byId('state').hidden = false; byId('state').textContent = 'Waiting for the completed audit result.';}
-    else if (message.method === 'ui/notifications/host-context-changed') context(message.params);
+    else if (message.method === 'ui/notifications/host-context-changed') {context(message.params); preferFullscreen(message.params);}
     else if (message.method === 'ui/notifications/tool-cancelled') render({isError:true});
   });
   new ResizeObserver(() => notify('ui/notifications/size-changed', {height:Math.ceil(document.body.getBoundingClientRect().height)})).observe(document.body);
   request('ui/initialize', {protocolVersion:'2026-01-26', appInfo:{name:'Nymrel website audit',version:'1.0.0'}, appCapabilities:{}})
-    .then(result => {context(result?.hostContext); notify('ui/notifications/initialized');})
+    .then(result => {context(result?.hostContext); notify('ui/notifications/initialized'); preferFullscreen(result?.hostContext);})
     .catch(() => {if (byId('report').hidden) byId('state').textContent = 'This host cannot display the audit app. The same result is available in the conversation.';});
 })();
 </script></body></html>
