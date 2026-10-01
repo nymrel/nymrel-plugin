@@ -28,7 +28,7 @@ const TOOL_INFO = {
 };
 const STORAGE_KEY = "nymrel-workbench-preferences-v1";
 const TOOL_IDS = new Set(Object.keys(TOOL_INFO));
-const PLATFORM_IDS = new Set(["tiktok", "reels", "shorts"]);
+const PLATFORM_IDS = new Set(["tiktok", "instagram_reels", "youtube_shorts"]);
 const app = new App({ name: "Nymrel Public Workbench", version: "1.0.0" }, {});
 const state = {
   connected: false,
@@ -53,9 +53,10 @@ function loadPreferences() {
   const defaults = { defaultTool: "website", platform: "tiktok", showEvidence: false };
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    const savedPlatform = ({ reels: "instagram_reels", shorts: "youtube_shorts" })[saved?.platform] || saved?.platform;
     return {
       defaultTool: TOOL_IDS.has(saved?.defaultTool) ? saved.defaultTool : defaults.defaultTool,
-      platform: PLATFORM_IDS.has(saved?.platform) ? saved.platform : defaults.platform,
+      platform: PLATFORM_IDS.has(savedPlatform) ? savedPlatform : defaults.platform,
       showEvidence: typeof saved?.showEvidence === "boolean" ? saved.showEvidence : defaults.showEvidence,
     };
   } catch {

@@ -7,6 +7,9 @@ import { chromium } from "playwright";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const asset = await readFile(path.join(root, "hosted-mcp", "api", "assets", "workbench.html"), "utf8");
+// Contract from nymrel/nymrel src/app/api/v1/tools/_lib/contracts.ts at
+// upstream main 814303a9ef52501e477a5ee10517b87debf4cf75.
+const acceptedClipPlatforms = new Set(["tiktok", "instagram_reels", "youtube_shorts", "x"]);
 for (const notice of [
   "@modelcontextprotocol/ext-apps 1.7.5 (MIT)",
   "@modelcontextprotocol/sdk 1.30.0 (MIT)",
@@ -172,8 +175,14 @@ try {
   assert.deepEqual(await getHost(page, "window.__testHost.calls.at(-1).arguments"), {clubs:[{name:"7 iron",carry_distance_yards:165,loft_degrees:30.5},{name:"5 iron",carry_distance_yards:185}]});
 
   await chooseTool(frame, "clip");
+  const clipPlatformValues = await frame.locator("#clip-platform option").evaluateAll((options) => options.map((option) => option.value));
+  const defaultPlatformValues = await frame.locator("#default-platform option").evaluateAll((options) => options.map((option) => option.value));
+  assert.deepEqual(clipPlatformValues, ["tiktok", "instagram_reels", "youtube_shorts"], "short-form choices use the upstream API identifiers");
+  assert.deepEqual(defaultPlatformValues, clipPlatformValues, "clip and preference choices stay in sync");
+  assert.equal(new Set(clipPlatformValues).size, clipPlatformValues.length, "clip platform values are unique");
+  assert.ok(clipPlatformValues.every((platform) => acceptedClipPlatforms.has(platform)), "every displayed platform is accepted by the current public API contract");
   await frame.locator("#clip-transcript").fill("Stop doing this in Python right now.");
-  await frame.locator("#clip-platform").selectOption("shorts");
+  await frame.locator("#clip-platform").selectOption("youtube_shorts");
   await page.evaluate(() => window.__testHost.respond("nymrel_social_clip_score", {structuredContent:{hook_score:77,hook_strength:"Strong",signals:{opening_word_count:7,opens_with_hook_pattern:true,addresses_viewer:true,has_curiosity_signal:false,opening_contains_number:false,total_word_count:21,platform_word_range:[20,40],total_word_count_in_platform_range:true},suggested_edits:["Try a shorter opening."]},content:[{type:"text",text:"clip result"}]}, 700));
   await frame.locator("#form-clip button[type=submit]").click();
   await frame.getByText("Measuring the opening…").waitFor();
@@ -184,7 +193,19 @@ try {
   assert.equal(await frame.locator("#tab-golf").getAttribute("aria-selected"), "true", "a late response does not steal the active tool view");
   await chooseTool(frame, "clip");
   await frame.getByText("77 / 100").waitFor();
-  assert.deepEqual(await getHost(page, "window.__testHost.calls.at(-1).arguments"), {transcript_text:"Stop doing this in Python right now.",target_platform:"shorts"});
+  assert.deepEqual(await getHost(page, "window.__testHost.calls.at(-1).arguments"), {transcript_text:"Stop doing this in Python right now.",target_platform:"youtube_shorts"});
+  const clipSuccess = {structuredContent:{hook_score:77,hook_strength:"Strong",signals:{opening_word_count:7,opens_with_hook_pattern:true,addresses_viewer:true,has_curiosity_signal:false,opening_contains_number:false,total_word_count:21,platform_word_range:[20,40],total_word_count_in_platform_range:true},suggested_edits:["Try a shorter opening."]},content:[{type:"text",text:"clip result"}]};
+  for (const platform of clipPlatformValues) {
+    await frame.locator("#clip-platform").selectOption(platform);
+    await page.evaluate((result) => window.__testHost.respond("nymrel_social_clip_score", result, 40), clipSuccess);
+    await frame.locator("#form-clip button[type=submit]").click();
+    await frame.getByText("Measuring the opening…").waitFor();
+    await frame.locator("#status-clip").getByText("Result ready.", { exact: false }).waitFor();
+    await frame.getByText("77 / 100").waitFor();
+    assert.deepEqual(await getHost(page, "window.__testHost.calls.at(-1).arguments"), {
+      transcript_text:"Stop doing this in Python right now.", target_platform:platform,
+    }, `${platform} must be sent exactly as accepted by the public API`);
+  }
 
   await page.evaluate(() => window.__testHost.respond("nymrel_find_domain", {isError:true,structuredContent:{status:"error",error:{code:"UPSTREAM_NOT_DEPLOYED",message:"Nymrel could not check this idea right now."}},content:[{type:"text",text:"Nymrel could not check this idea right now."}]}));
   await chooseTool(frame, "domains");
@@ -226,6 +247,18 @@ try {
   await disabledFrame.locator("#workbench").waitFor({ state: "visible", timeout: 10000 });
   assert.equal(await disabledFrame.locator("#form-website button[type=submit]").isDisabled(), true, "missing serverTools disables tool calls");
   assert.equal(await disabledFrame.locator("#result button").count(), 0);
+
+  for (const [legacyPlatform, currentPlatform] of [["reels", "instagram_reels"], ["shorts", "youtube_shorts"]]) {
+    const migrationPage = await browser.newPage();
+    await migrationPage.addInitScript((platform) => {
+      localStorage.setItem("nymrel-workbench-preferences-v1", JSON.stringify({ defaultTool: "clip", platform, showEvidence: false }));
+    }, legacyPlatform);
+    await migrationPage.goto(base);
+    const migrationFrame = migrationPage.frameLocator("#workbench-frame");
+    await migrationFrame.locator("#workbench").waitFor({ state: "visible", timeout: 10000 });
+    assert.equal(await migrationFrame.locator("#default-platform").inputValue(), currentPlatform, `saved ${legacyPlatform} preference migrates to ${currentPlatform}`);
+    await migrationPage.close();
+  }
 
   const timeoutPage = await browser.newPage();
   await timeoutPage.goto(`${base}/?mode=timeout`);
