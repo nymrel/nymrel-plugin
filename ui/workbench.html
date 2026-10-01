@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Nymrel tool workbench</title>
+  <style>
+    :root{color-scheme:light dark;font-family:var(--font-sans,Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif);color:var(--color-text-primary,#25352f);background:var(--color-background-primary,#f7f5ef);--accent:#a6532e;--line:var(--color-border-primary,#dedbd2);--muted:var(--color-text-secondary,#68736d);--surface:var(--color-background-secondary,#fffefa);--soft:#f2e9df}
+    *{box-sizing:border-box}body{margin:0;min-width:0;padding:clamp(16px,3vw,34px);background:var(--color-background-primary,#f7f5ef);color:var(--color-text-primary,#25352f)}button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.55}main{max-width:1120px;margin:0 auto}.topline{display:flex;align-items:center;gap:12px;margin:0 0 26px}.mark{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:var(--accent);color:#fff;font-weight:800;letter-spacing:-.05em}.brand{font-weight:750;letter-spacing:.02em}.eyebrow{margin:0 0 9px;color:var(--accent);font-size:11px;font-weight:750;letter-spacing:.16em;text-transform:uppercase}h1{margin:0;font-size:clamp(29px,5vw,46px);line-height:1.04;letter-spacing:-.045em}h2{margin:0;font-size:20px;letter-spacing:-.025em}p{line-height:1.55}.lede{max-width:640px;margin:12px 0 24px;color:var(--muted)}.shell{display:grid;grid-template-columns:220px minmax(0,1fr);gap:20px;align-items:start}.rail,.workspace,.preferences{border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 9px 30px #3425150a}.rail{padding:10px}.tool-tab{width:100%;display:flex;align-items:center;gap:11px;border:0;border-radius:12px;background:transparent;color:inherit;text-align:left;padding:12px 11px;margin:1px 0;font-weight:650}.tool-tab:hover{background:color-mix(in srgb,var(--accent) 8%,transparent)}.tool-tab[aria-selected="true"]{background:var(--soft);color:var(--accent)}.tab-icon{display:grid;place-items:center;flex:none;width:30px;height:30px;border:1px solid color-mix(in srgb,var(--accent) 25%,var(--line));border-radius:9px;font-size:13px}.workspace{min-width:0;padding:clamp(18px,3vw,30px)}.workspace-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding-bottom:21px;border-bottom:1px solid var(--line)}.workspace-head p{margin:6px 0 0;color:var(--muted);font-size:14px}.readonly{flex:none;border:1px solid var(--line);border-radius:999px;padding:7px 10px;color:var(--muted);font-size:11px;white-space:nowrap}.tool-form{padding-top:21px}.tool-form[hidden]{display:none!important}.field{display:grid;gap:7px;margin:0 0 17px}.field label,.field-label{font-weight:680;font-size:13px}.help{margin:-2px 0 0;color:var(--muted);font-size:12px}.field input,.field select,.field textarea,.club-row input{width:100%;min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--color-background-primary,#fff);color:inherit;padding:11px 12px;outline:none}.field textarea{min-height:150px;resize:vertical}.field input:focus,.field select:focus,.field textarea:focus,.club-row input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 17%,transparent)}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}.actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:20px}.primary{border:0;border-radius:10px;background:var(--accent);color:white;padding:11px 17px;font-weight:720}.primary:hover:not(:disabled){background:#884222}.quiet{border:1px solid var(--line);border-radius:10px;background:transparent;color:inherit;padding:9px 12px;font-weight:640}.quiet:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 7%,transparent)}.status{min-height:21px;margin:14px 0 0;color:var(--muted);font-size:13px}.status[data-kind="error"]{color:#ad3128}.status[data-kind="success"]{color:#26704d}.result{margin-top:23px;border-top:1px solid var(--line);padding-top:20px}.result[hidden]{display:none!important}.result-title{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:13px}.result-title h2{font-size:17px}.result-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 17px}.metric{min-width:0;border:1px solid var(--line);border-radius:12px;padding:12px}.metric small{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:4px;font-size:18px;overflow-wrap:anywhere}.result h3{margin:18px 0 8px;font-size:13px}.result ul{padding-left:21px;margin:7px 0}.result li{padding:3px 0;line-height:1.5;overflow-wrap:anywhere}.result pre{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--surface) 84%,#888);padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.5}.result pre[hidden]{display:none}.notice{border-left:3px solid var(--accent);padding:9px 12px;background:color-mix(in srgb,var(--accent) 7%,transparent);font-size:13px;line-height:1.5}.club-list{display:grid;gap:9px}.club-row{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(100px,.8fr) minmax(105px,.8fr) auto;gap:8px;align-items:center}.club-row input{padding:9px 10px}.club-row .remove{width:36px;height:38px}.form-footer{display:flex;align-items:center;justify-content:space-between;gap:12px}.settings{margin-top:18px}.settings summary{cursor:pointer;color:var(--muted);font-size:12px}.settings-panel{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:14px}.settings-panel label{display:flex;gap:8px;align-items:center;font-size:12px}.settings-panel select{max-width:185px;border:1px solid var(--line);border-radius:8px;background:var(--color-background-primary,#fff);color:inherit;padding:7px}.settings-note{flex-basis:100%;margin:0;color:var(--muted);font-size:11px}.footnote{margin:18px 0 0;color:var(--muted);font-size:11px;line-height:1.5}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}[hidden]{display:none!important}
+    @media(max-width:720px){body{padding:15px}.topline{margin-bottom:20px}.shell{grid-template-columns:minmax(0,1fr);gap:12px}.rail{display:flex;gap:5px;overflow-x:auto;padding:6px;scrollbar-width:thin}.tool-tab{width:auto;flex:1 0 auto;justify-content:center;padding:7px 9px;font-size:12px}.tab-icon{width:26px;height:26px}.workspace{padding:18px}.club-row{grid-template-columns:minmax(0,1fr) minmax(65px,.7fr) minmax(80px,.8fr) 36px}.result-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two-col{grid-template-columns:1fr}}
+    @media(max-width:390px){.tool-tab{flex-direction:column;gap:4px}.readonly{font-size:10px;padding:6px 8px}.workspace-head{gap:9px}.result-grid{grid-template-columns:1fr 1fr}}
+  </style>
+</head>
+<body>
+  <main id="app-root" aria-busy="true">
+    <div class="topline"><div class="mark" aria-hidden="true">N</div><div class="brand">NYMREL</div></div>
+    <p class="eyebrow">Public tools</p>
+    <h1>A clearer next step.</h1>
+    <p class="lede">Run a read-only tool to send your inputs to Nymrel and view its result. Choose a public website, a domain idea, golf bag distances, or a short-video hook.</p>
+    <div id="host-status" class="notice" role="status">Connecting to your workspace…</div>
+    <div class="shell" id="workbench" hidden>
+      <nav class="rail" aria-label="Nymrel tools" role="tablist">
+        <button class="tool-tab" id="tab-website" type="button" role="tab" aria-controls="panel-website" aria-selected="true" data-tool="website"><span class="tab-icon" aria-hidden="true">↗</span><span>Website</span></button>
+        <button class="tool-tab" id="tab-domains" type="button" role="tab" aria-controls="panel-domains" aria-selected="false" data-tool="domains"><span class="tab-icon" aria-hidden="true">⌕</span><span>Domains</span></button>
+        <button class="tool-tab" id="tab-golf" type="button" role="tab" aria-controls="panel-golf" aria-selected="false" data-tool="golf"><span class="tab-icon" aria-hidden="true">⌁</span><span>Golf bag</span></button>
+        <button class="tool-tab" id="tab-clip" type="button" role="tab" aria-controls="panel-clip" aria-selected="false" data-tool="clip"><span class="tab-icon" aria-hidden="true">▶</span><span>Social clip</span></button>
+      </nav>
+      <section class="workspace" aria-label="Tool workspace">
+        <header class="workspace-head"><div><h2 id="tool-title">Website audit</h2><p id="tool-description">Measure technical signals on one public page.</p></div><span class="readonly">Read only</span></header>
+        <section class="tool-form" id="panel-website" role="tabpanel" aria-labelledby="tab-website" data-tool="website">
+          <form id="form-website" novalidate>
+            <div class="field"><label for="website-url">Public page address</label><input id="website-url" name="url" type="url" inputmode="url" autocomplete="url" placeholder="https://example.com" required maxlength="2048"><p class="help">One public page. The audit does not log in or change the site.</p></div>
+            <div class="actions"><button class="primary submit-button" type="submit">Run website audit</button></div>
+          </form>
+          <p class="status" id="status-website" role="status" aria-live="polite"></p>
+        </section>
+        <section class="tool-form" id="panel-domains" role="tabpanel" aria-labelledby="tab-domains" data-tool="domains" hidden>
+          <form id="form-domains" novalidate>
+            <div class="field"><label for="domain-idea">What should the name suggest?</label><input id="domain-idea" name="keyword_or_concept" type="text" placeholder="mobile dog grooming" required maxlength="240"><p class="help">Use a word or short concept. Availability is checked only when marked as checked in the result.</p></div>
+            <div class="field"><label for="domain-tlds">Domain endings</label><input id="domain-tlds" name="tlds" type="text" placeholder=".com, .io" maxlength="160"><p class="help">Optional. Enter endings with a leading dot, separated by commas.</p></div>
+            <div class="actions"><button class="primary submit-button" type="submit">Find domain ideas</button></div>
+          </form>
+          <p class="status" id="status-domains" role="status" aria-live="polite"></p>
+        </section>
+        <section class="tool-form" id="panel-golf" role="tabpanel" aria-labelledby="tab-golf" data-tool="golf" hidden>
+          <form id="form-golf" novalidate>
+            <p class="field-label">Clubs and carry distances</p><p class="help">Enter 1–14 clubs. Use yards for every distance.</p>
+            <div class="club-list" id="club-list" aria-label="Golf clubs"></div>
+            <div class="form-footer"><button class="quiet" id="add-club" type="button">Add a club</button><span class="help" id="club-count"></span></div>
+            <div class="actions"><button class="primary submit-button" type="submit">Find distance gaps</button></div>
+          </form>
+          <p class="status" id="status-golf" role="status" aria-live="polite"></p>
+        </section>
+        <section class="tool-form" id="panel-clip" role="tabpanel" aria-labelledby="tab-clip" data-tool="clip" hidden>
+          <form id="form-clip" novalidate>
+            <div class="field"><label for="clip-transcript">What is said in the clip?</label><textarea id="clip-transcript" name="transcript_text" placeholder="Paste the spoken words here…" required maxlength="12000"></textarea><p class="help">Text analysis only. The tool does not post, edit, or predict views.</p></div>
+            <div class="field"><label for="clip-platform">Target platform</label><select id="clip-platform" name="target_platform"><option value="tiktok">TikTok</option><option value="reels">Instagram Reels</option><option value="shorts">YouTube Shorts</option></select></div>
+            <div class="actions"><button class="primary submit-button" type="submit">Measure hook signals</button></div>
+          </form>
+          <p class="status" id="status-clip" role="status" aria-live="polite"></p>
+        </section>
+        <section class="result" id="result" aria-live="polite" hidden></section>
+        <details class="settings" id="settings">
+          <summary>Display preferences</summary>
+          <div class="settings-panel">
+            <label for="default-tool">Default tool <select id="default-tool"><option value="website">Website</option><option value="domains">Domains</option><option value="golf">Golf bag</option><option value="clip">Social clip</option></select></label>
+            <label for="default-platform">Default clip platform <select id="default-platform"><option value="tiktok">TikTok</option><option value="reels">Instagram Reels</option><option value="shorts">YouTube Shorts</option></select></label>
+            <label for="show-evidence"><input id="show-evidence" type="checkbox"> Show result evidence</label>
+            <p class="settings-note">These preferences are saved in this browser only. This view does not save form entries or results.</p>
+          </div>
+        </details>
+        <p class="footnote">Results are point-in-time measurements based on the values you submit. Nymrel will not purchase, reserve, post, or change anything through these tools.</p>
+      </section>
+    </div>
+  </main>
+  <script>
+    // WORKBENCH_BUNDLE
+  </script>
+</body>
+</html>

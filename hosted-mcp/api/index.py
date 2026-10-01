@@ -17,7 +17,7 @@ import os
 import sys
 import weakref
 from typing import Any
-from urllib.parse import parse_qs, parse_qsl, urlencode
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlsplit
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -30,6 +30,7 @@ import nymrel_public_mcp_server as server  # noqa: E402
 import nymrel_private_handoff as private_handoff  # noqa: E402
 import nymrel_remote_read as remote_read  # noqa: E402
 import audit_ui  # noqa: E402
+import workbench_ui  # noqa: E402
 import public_results  # noqa: E402
 
 from starlette.applications import Starlette  # noqa: E402
@@ -75,6 +76,28 @@ _provider.remove_tool("nymrel_local_permit_lookup")
 _provider.remove_tool("nymrel_find_domain")
 _provider.remove_tool("nymrel_submit_studio_brief")
 
+
+def _audit_public_page(url: str) -> dict[str, Any]:
+    """Audit a public page without forwarding embedded URL credentials."""
+    candidate = url.strip()
+    if not candidate.lower().startswith(("https://", "http://")):
+        candidate = "https://" + candidate
+    try:
+        parsed = urlsplit(candidate)
+        credentials = parsed.username is not None or parsed.password is not None
+    except ValueError:
+        return server.NymrelPublicApiError(
+            "INVALID_INPUT", "Use a valid public website URL.", status=400, retryable=False,
+        ).payload()
+    if credentials:
+        return server.NymrelPublicApiError(
+            "INVALID_INPUT", "Use a public URL without embedded credentials.", status=400, retryable=False,
+        ).payload()
+    return server.nymrel_audit_website(url)
+
+
+_audit_public_page.__doc__ = server.nymrel_audit_website.__doc__
+
 # The data tools remain usable by text-only hosts. Attach explicit success and
 # failure contracts at the hosted boundary, leaving the upstream client reusable.
 for _name, _model, _title, _open_world in (
@@ -83,7 +106,9 @@ for _name, _model, _title, _open_world in (
 ):
     _provider.remove_tool(_name)
     server.mcp.tool(
-        public_results.contract(_model)(getattr(server, _name)), name=_name,
+        public_results.contract(_model)(
+            _audit_public_page if _name == "nymrel_audit_website" else getattr(server, _name)
+        ), name=_name,
         output_schema=public_results.output_schema(_model),
         annotations={"title": _title, "readOnlyHint": True,
                      "openWorldHint": _open_world, "destructiveHint": False},
@@ -171,6 +196,7 @@ private_handoff.register_private_handoff_tools(server.mcp)
 remote_read.validate_activation()
 remote_read.register_tools(server.mcp)
 audit_ui.register(server.mcp)
+workbench_ui.register(server.mcp)
 
 
 def _tool_security_schemes(tool: Any) -> list[dict[str, Any]]:
@@ -181,7 +207,7 @@ def _tool_security_schemes(tool: Any) -> list[dict[str, Any]]:
         if not isinstance(schemes, list) or not schemes:
             raise RuntimeError(f"Private tool {tool.name} is missing its OAuth policy.")
         return schemes
-    if tool.name in (*PUBLIC_TOOL_NAMES, audit_ui.TOOL_NAME):
+    if tool.name in (*PUBLIC_TOOL_NAMES, audit_ui.TOOL_NAME, workbench_ui.TOOL_NAME):
         return [{"type": "noauth"}]
     raise RuntimeError(f"Tool {tool.name} has no reviewed authentication policy.")
 

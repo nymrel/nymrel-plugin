@@ -64,6 +64,22 @@ async def rpc(method, params=None):
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("url", [
+    "https://user:do-not-forward@example.com/path",
+    "https://do-not-forward@example.com",
+    "https://@example.com",
+    "https://user:do-not-forward%40encoded@example.com",
+    "user:do-not-forward@example.com/path",
+])
+async def test_audit_rejects_embedded_credentials_before_upstream_call(url):
+    with patch.object(index.server, "_call_tool", side_effect=AssertionError("credential URL must not be forwarded")):
+        result = await rpc("tools/call", {"name": "nymrel_audit_website", "arguments": {"url": url}})
+    assert result["isError"]
+    assert result["structuredContent"]["error"]["code"] == "INVALID_INPUT"
+    assert "do-not-forward" not in json.dumps(result)
+
+
+@pytest.mark.anyio
 async def test_activated_ui_descriptor_resource_and_no_refetch():
     with patch.dict(os.environ, {audit_ui.FEATURE_ENV: "true"}):
         tools = {tool["name"]: tool for tool in (await rpc("tools/list"))["tools"]}

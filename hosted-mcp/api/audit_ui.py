@@ -23,7 +23,8 @@ def register(mcp):
     @mcp.resource(
         RESOURCE_URI, name="Nymrel website audit", mime_type=MIME_TYPE,
         auth=enabled,
-        meta={"ui": {"prefersBorder": True, "csp": {"connectDomains": [], "resourceDomains": []}}},
+        meta={"ui": {"prefersBorder": True, "csp": {"connectDomains": [], "resourceDomains": []}},
+              "openai/ui": {"preferredDisplayMode": "fullscreen", "availableDisplayModes": ["fullscreen"]}},
     )
     def audit_widget() -> str:
         return Path(__file__).with_name("assets").joinpath("audit-widget.html").read_text(encoding="utf-8")

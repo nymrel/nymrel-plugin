@@ -13,11 +13,16 @@ try {
   await page.setContent('<iframe title="Nymrel audit" style="width:100%;height:900px;border:0"></iframe>');
   await page.evaluate(({html,payload}) => {
     window.appInitialized = false;
+    window.displayRequests = 0;
     const frame = document.querySelector('iframe');
     window.addEventListener('message', event => {
       if (event.source !== frame.contentWindow) return;
       const message = event.data;
-      if (message.method === 'ui/initialize') frame.contentWindow.postMessage({jsonrpc:'2.0',id:message.id,result:{protocolVersion:'2026-01-26',hostCapabilities:{},hostContext:{theme:'light',styles:{variables:{'--color-text-primary':'#253c33'}}}}}, '*');
+      if (message.method === 'ui/initialize') frame.contentWindow.postMessage({jsonrpc:'2.0',id:message.id,result:{protocolVersion:'2026-01-26',hostCapabilities:{},hostContext:{theme:'light',displayMode:'inline',availableDisplayModes:['inline','fullscreen'],styles:{variables:{'--color-text-primary':'#253c33'}}}}}, '*');
+      if (message.method === 'ui/request-display-mode') {
+        window.displayRequests++;
+        frame.contentWindow.postMessage({jsonrpc:'2.0',id:message.id,result:{mode:'inline'}}, '*');
+      }
       if (message.method === 'ui/notifications/initialized') {
         window.appInitialized = true;
         frame.contentWindow.postMessage({jsonrpc:'2.0',method:'ui/notifications/tool-result',params:{structuredContent:payload}}, '*');
@@ -26,6 +31,8 @@ try {
     frame.srcdoc = html;
   }, {html,payload});
   await page.waitForFunction(() => window.appInitialized);
+  await page.waitForFunction(() => window.displayRequests === 1);
+  await page.evaluate(() => document.querySelector('iframe').contentWindow.postMessage({jsonrpc:'2.0',method:'ui/notifications/host-context-changed',params:{displayMode:'inline',availableDisplayModes:['inline','fullscreen']}}, '*'));
   const frame = page.frameLocator('iframe');
   await frame.locator('#report').waitFor({state:'visible'});
   assert.equal(await frame.locator('#score').textContent(), '72');
@@ -55,5 +62,6 @@ try {
   await send({isError:true});
   await frame.locator('#report').waitFor({state:'hidden'});
   assert.deepEqual(errors, []);
-  console.log('PASS: initialize, tool result, evidence, mobile, untrusted text/source, empty/error states');
+  assert.equal(await page.evaluate(() => window.displayRequests), 1, 'honor host mode after one fullscreen request');
+  console.log('PASS: initialize, fullscreen preference, tool result, evidence, mobile, untrusted text/source, empty/error states');
 } finally {await browser.close();}

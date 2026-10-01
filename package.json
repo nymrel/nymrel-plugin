@@ -12,9 +12,12 @@
     "test:mcp": "node scripts/mcp-smoke.mjs",
     "test:live": "tsc -p tsconfig.json && node scripts/live-audit.mjs",
     "verify:toolchain": "node scripts/verify-toolchain.mjs",
+    "build:ui": "node scripts/build-workbench-ui.mjs",
+    "verify:ui": "node scripts/build-workbench-ui.mjs --check",
+    "test:ui": "node scripts/audit-ui-smoke.mjs && node scripts/workbench-ui-smoke.mjs",
     "audit": "npm audit --audit-level=high",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
-    "verify": "node scripts/verify-toolchain.mjs && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.json && node --test test/*.test.mjs && node scripts/mcp-smoke.mjs"
+    "verify": "node scripts/verify-toolchain.mjs && node scripts/build-workbench-ui.mjs --check && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.json && node --test test/*.test.mjs && node scripts/mcp-smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "1.7.5",

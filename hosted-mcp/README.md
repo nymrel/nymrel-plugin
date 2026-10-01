@@ -55,6 +55,24 @@ three per turn; the proxy itself makes one backend call and never auto-replays.
 See `../docs/chatgpt-workflow-adoption-2026-09-29.md` for source-backed decisions,
 validation, and the remaining target-host gates.
 
+## Public tool workbench
+
+`NYMREL_TOOLS_UI_ENABLED=true` independently adds `nymrel_open_tools` and
+`ui://nymrel/tools-v1.html`. The opener accepts `{}` from global navigation or
+a thread, and returns only the four-tool catalog. No analysis runs at launch.
+The view uses the bundled MCP Apps SDK and calls the existing data tools on
+form submission. It supports fullscreen only and applies host themes and
+deep links. In-app preferences store only display choices in this browser;
+submitted inputs and results are not persisted. A separate user button adds
+the selected result to conversation context when that host supports it.
+
+The flag is off by default pending host acceptance. Test with `npm run test:ui`
+from the root and the real hosted wire tests. `verify_live_contract.py --tools-ui`
+checks the exact enabled catalog, entrypoints, launch, resource, and display/CSP
+metadata; it composes with `--audit-ui` and `--remote-read --issuer ...`.
+See [the extension record](../docs/plugin-extensions-2026-09-30.md) for the
+plugin-family inventory and acceptance matrix.
+
 ## Activation-held private handoff adapter
 
 This source also contains a disabled-by-default adapter for two future,

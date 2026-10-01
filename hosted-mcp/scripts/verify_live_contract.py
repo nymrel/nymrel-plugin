@@ -92,6 +92,7 @@ def main() -> int:
     parser.add_argument("--issuer", help="Exact expected OAuth issuer, including its published trailing slash")
     parser.add_argument("--public-results", action="store_true", help="Require the new explicit public output contracts")
     parser.add_argument("--audit-ui", action="store_true", help="Require the activated audit app and its resource (implies --public-results)")
+    parser.add_argument("--tools-ui", action="store_true", help="Require global/thread public workbench and its bundled resource (implies --public-results)")
     args = parser.parse_args()
     if args.remote_read and not args.issuer:
         parser.error("--remote-read requires --issuer")
@@ -124,6 +125,8 @@ def main() -> int:
     expected = EXPECTED_TOOLS | REMOTE_TOOLS if args.remote_read else EXPECTED_TOOLS
     if args.audit_ui:
         expected = expected | {"nymrel_render_website_audit"}
+    if args.tools_ui:
+        expected = expected | {"nymrel_open_tools"}
     check("tools/list returns the expected catalog", names == expected and len(tools) == len(expected), str(sorted(names)))
     for tool in tools:
         opaque = opaque_input_nodes(tool.get("inputSchema", {}))
@@ -148,7 +151,7 @@ def main() -> int:
         mirror = (tool.get("_meta") or {}).get("securitySchemes")
         check(f"{tool['name']} carries exact auth policy", schemes == expected_schemes and mirror == expected_schemes)
 
-    if args.public_results or args.audit_ui:
+    if args.public_results or args.audit_ui or args.tools_ui:
         import public_results
         models = {
             "nymrel_audit_website": public_results.AuditSummary,
@@ -179,6 +182,29 @@ def main() -> int:
             "requested_url": "https://example.com", "report": fixture}}).get("result", {})
         check("audit render preserves synthetic evidence", not rendered.get("isError")
               and rendered.get("structuredContent") == {"requested_url": "https://example.com", "report": fixture})
+
+    if args.tools_ui:
+        import workbench_ui
+        opener = next((tool for tool in tools if tool["name"] == workbench_ui.TOOL_NAME), {})
+        meta = opener.get("_meta") or {}
+        check("workbench advertises global and thread entrypoints",
+              meta.get("openai/ui", {}).get("entrypoints") == [{"type": "global"}, {"type": "thread"}]
+              and meta.get("ui", {}).get("resourceUri") == workbench_ui.RESOURCE_URI
+              and bool(opener.get("icons")))
+        opened = rpc(base, "tools/call", {"name": workbench_ui.TOOL_NAME, "arguments": {}}).get("result", {})
+        catalog = opened.get("structuredContent") or {}
+        check("empty-argument launch returns only the public workbench",
+              not opened.get("isError") and catalog.get("version") == "1.0"
+              and catalog.get("default_tool") == "website"
+              and {tool.get("name") for tool in catalog.get("tools", [])} == EXPECTED_TOOLS)
+        contents = rpc(base, "resources/read", {"uri": workbench_ui.RESOURCE_URI}).get("result", {}).get("contents", [])
+        resource = contents[0] if contents else {}
+        resource_meta = resource.get("_meta") or {}
+        check("workbench resource is fullscreen and contains the bundled app",
+              resource.get("mimeType") == workbench_ui.MIME_TYPE
+              and "Nymrel tool workbench" in resource.get("text", "")
+              and resource_meta.get("openai/ui") == workbench_ui.DISPLAY_META
+              and resource_meta.get("ui", {}).get("csp") == {"connectDomains": [], "resourceDomains": []})
 
     # 3. The golf contract round-trips: the documented shape is accepted and
     #    a wrong key is rejected by the schema layer, naming the field.
