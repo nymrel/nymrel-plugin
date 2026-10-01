@@ -8,7 +8,8 @@ const templatePath = path.join(root, "ui", "workbench.html");
 const entryPath = path.join(root, "ui", "workbench.js");
 const outputPath = path.join(root, "hosted-mcp", "api", "assets", "workbench.html");
 const checkOnly = process.argv.slice(2).includes("--check");
-const template = await readFile(templatePath, "utf8");
+const normalizeEol = (value) => value.replace(/\r\n?/g, "\n");
+const template = normalizeEol(await readFile(templatePath, "utf8"));
 const marker = "    // WORKBENCH_BUNDLE";
 if (!template.includes(marker) || template.indexOf(marker) !== template.lastIndexOf(marker)) {
   throw new Error("workbench.html must contain exactly one WORKBENCH_BUNDLE marker");
@@ -93,7 +94,7 @@ const expected = template.replace(marker, () => bundle);
 if (checkOnly) {
   let actual;
   try {
-    actual = await readFile(outputPath, "utf8");
+    actual = normalizeEol(await readFile(outputPath, "utf8"));
   } catch {
     throw new Error("Generated workbench asset is missing; run node scripts/build-workbench-ui.mjs");
   }
