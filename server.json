@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.nymrel/nymrel",
+  "title": "Nymrel",
+  "description": "Four public utilities plus seven OAuth-protected Remote read tools for paired Nymrel devices.",
+  "version": "1.4.0",
+  "websiteUrl": "https://nymrel.com",
+  "repository": {
+    "url": "https://github.com/nymrel/nymrel-plugin",
+    "source": "github",
+    "id": "1334944158",
+    "subfolder": "hosted-mcp"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.nymrel.com/mcp"
+    }
+  ]
+}
