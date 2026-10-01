@@ -1,0 +1,17 @@
+{
+  "name": "nymrel",
+  "version": "1.4.0",
+  "description": "Read-only website audits, domain research, golf gapping, and short-video transcript checks.",
+  "mcpServers": {
+    "nymrel": {
+      "httpUrl": "https://mcp.nymrel.com/mcp",
+      "includeTools": [
+        "nymrel_audit_website",
+        "nymrel_find_domain",
+        "nymrel_golf_bag_gap",
+        "nymrel_social_clip_score"
+      ]
+    }
+  },
+  "contextFileName": "GEMINI.md"
+}
