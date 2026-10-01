@@ -20,6 +20,8 @@ From the repository root:
 fnm use (Get-Content .node-version)
 corepack npm@11.19.1 ci
 corepack npm@11.19.1 run verify
+corepack npm@11.19.1 exec -- playwright install chromium
+corepack npm@11.19.1 run test:ui
 corepack npm@11.19.1 audit --audit-level=high
 corepack npm@11.19.1 audit --omit=dev --audit-level=high
 ```
@@ -36,3 +38,9 @@ Hosted CI and CodeQL remain required evidence when GitHub Actions is available.
 If the account or repository cannot execute Actions, leave the pull request
 open and record that external gate instead of describing local checks as hosted
 proof.
+
+Workbench source lives in `ui/workbench.html` and `ui/workbench.js`.
+`npm run build:ui` bundles the locked MCP Apps SDK into the hosted HTML asset;
+commit that asset with its sources. `npm run verify:ui` rejects generated-asset
+drift without writing. UI tests use an isolated synthetic host and supplied
+fixtures, without a production call or account connection.

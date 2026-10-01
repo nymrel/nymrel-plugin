@@ -90,6 +90,9 @@ def main() -> int:
     parser.add_argument("base_url", nargs="?", default="https://mcp.nymrel.com")
     parser.add_argument("--remote-read", action="store_true", help="Check the activated private read catalog and OAuth metadata")
     parser.add_argument("--issuer", help="Exact expected OAuth issuer, including its published trailing slash")
+    parser.add_argument("--public-results", action="store_true", help="Require the new explicit public output contracts")
+    parser.add_argument("--audit-ui", action="store_true", help="Require the activated audit app and its resource (implies --public-results)")
+    parser.add_argument("--tools-ui", action="store_true", help="Require global/thread public workbench and its bundled resource (implies --public-results)")
     args = parser.parse_args()
     if args.remote_read and not args.issuer:
         parser.error("--remote-read requires --issuer")
@@ -120,21 +123,88 @@ def main() -> int:
     tools = rpc(base, "tools/list", {})["result"]["tools"]
     names = {tool["name"] for tool in tools}
     expected = EXPECTED_TOOLS | REMOTE_TOOLS if args.remote_read else EXPECTED_TOOLS
-    check("tools/list returns the expected catalog", names == expected, str(sorted(names)))
+    if args.audit_ui:
+        expected = expected | {"nymrel_render_website_audit"}
+    if args.tools_ui:
+        expected = expected | {"nymrel_open_tools"}
+    check("tools/list returns the expected catalog", names == expected and len(tools) == len(expected), str(sorted(names)))
     for tool in tools:
         opaque = opaque_input_nodes(tool.get("inputSchema", {}))
         check(f"{tool['name']} schema is caller-completable", not opaque, ", ".join(opaque))
         annotations = tool.get("annotations") or {}
         check(
-            f"{tool['name']} carries title + readOnlyHint",
-            bool(annotations.get("title")) and "readOnlyHint" in annotations,
+            f"{tool['name']} carries exact read-only annotations",
+            bool(annotations.get("title"))
+            and annotations.get("readOnlyHint") is True
+            and annotations.get("destructiveHint") is False
+            and annotations.get("openWorldHint") is (
+                tool["name"] in {"nymrel_audit_website", "nymrel_find_domain"}
+            ),
         )
         expected_schemes = (
             [{"type": "oauth2", "scopes": sorted(REMOTE_SCOPES)}]
             if tool["name"] in REMOTE_TOOLS else [{"type": "noauth"}]
         )
-        schemes = tool.get("securitySchemes") or (tool.get("_meta") or {}).get("securitySchemes")
-        check(f"{tool['name']} carries exact auth policy", schemes == expected_schemes)
+        # Both published fields are part of Nymrel's host compatibility contract.
+        # A fallback would conceal a missing top-level field or a stale mirror.
+        schemes = tool.get("securitySchemes")
+        mirror = (tool.get("_meta") or {}).get("securitySchemes")
+        check(f"{tool['name']} carries exact auth policy", schemes == expected_schemes and mirror == expected_schemes)
+
+    if args.public_results or args.audit_ui or args.tools_ui:
+        import public_results
+        models = {
+            "nymrel_audit_website": public_results.AuditSummary,
+            "nymrel_find_domain": public_results.DomainResult,
+            "nymrel_golf_bag_gap": public_results.GolfResult,
+            "nymrel_social_clip_score": public_results.ClipResult,
+        }
+        for tool in tools:
+            if tool["name"] in models:
+                check(f"{tool['name']} publishes the reviewed output schema",
+                      tool.get("outputSchema") == public_results.output_schema(models[tool["name"]]))
+                check(f"{tool['name']} stays separate from presentation", "ui" not in (tool.get("_meta") or {}))
+
+    if args.audit_ui:
+        import audit_ui
+        render = next((tool for tool in tools if tool["name"] == audit_ui.TOOL_NAME), {})
+        check("audit render tool links the MCP App", (render.get("_meta") or {}).get("ui", {}).get("resourceUri") == audit_ui.RESOURCE_URI)
+        contents = rpc(base, "resources/read", {"uri": audit_ui.RESOURCE_URI}).get("result", {}).get("contents", [])
+        resource = contents[0] if contents else {}
+        check("audit resource serves the app without external network access",
+              resource.get("mimeType") == audit_ui.MIME_TYPE
+              and "ui/initialize" in resource.get("text", "")
+              and (resource.get("_meta") or {}).get("ui", {}).get("csp") == {"connectDomains": [], "resourceDomains": []})
+        fixture = {"score": 72, "grade": "C", "ai_discoverability_status": "PARTIAL",
+                   "schema_detected": [], "recommendations": ["Synthetic release check."],
+                   "full_report_url": "https://nymrel.com/site-audit"}
+        rendered = rpc(base, "tools/call", {"name": audit_ui.TOOL_NAME, "arguments": {
+            "requested_url": "https://example.com", "report": fixture}}).get("result", {})
+        check("audit render preserves synthetic evidence", not rendered.get("isError")
+              and rendered.get("structuredContent") == {"requested_url": "https://example.com", "report": fixture})
+
+    if args.tools_ui:
+        import workbench_ui
+        opener = next((tool for tool in tools if tool["name"] == workbench_ui.TOOL_NAME), {})
+        meta = opener.get("_meta") or {}
+        check("workbench advertises global and thread entrypoints",
+              meta.get("openai/ui", {}).get("entrypoints") == [{"type": "global"}, {"type": "thread"}]
+              and meta.get("ui", {}).get("resourceUri") == workbench_ui.RESOURCE_URI
+              and bool(opener.get("icons")))
+        opened = rpc(base, "tools/call", {"name": workbench_ui.TOOL_NAME, "arguments": {}}).get("result", {})
+        catalog = opened.get("structuredContent") or {}
+        check("empty-argument launch returns only the public workbench",
+              not opened.get("isError") and catalog.get("version") == "1.0"
+              and catalog.get("default_tool") == "website"
+              and {tool.get("name") for tool in catalog.get("tools", [])} == EXPECTED_TOOLS)
+        contents = rpc(base, "resources/read", {"uri": workbench_ui.RESOURCE_URI}).get("result", {}).get("contents", [])
+        resource = contents[0] if contents else {}
+        resource_meta = resource.get("_meta") or {}
+        check("workbench resource is fullscreen and contains the bundled app",
+              resource.get("mimeType") == workbench_ui.MIME_TYPE
+              and "Nymrel tool workbench" in resource.get("text", "")
+              and resource_meta.get("openai/ui") == workbench_ui.DISPLAY_META
+              and resource_meta.get("ui", {}).get("csp") == {"connectDomains": [], "resourceDomains": []})
 
     # 3. The golf contract round-trips: the documented shape is accepted and
     #    a wrong key is rejected by the schema layer, naming the field.
@@ -145,10 +215,26 @@ def main() -> int:
             {"name": "9 iron", "carry_distance_yards": 128},
         ]},
     })["result"]
-    good_text = good.get("content", [{}])[0].get("text", "")
+    good_text = next((item.get("text", "") for item in good.get("content", [])
+                      if item.get("type") == "text"), "")
+    try:
+        good_payload = json.loads(good_text)
+    except (TypeError, ValueError):
+        good_payload = None
+    structured = good.get("structuredContent")
+    # This fixed fixture has an exact answer. A field name in an error message
+    # or a contradictory structured result is not successful execution.
+    good_result = (
+        isinstance(good_payload, dict)
+        and type(good_payload.get("average_gap_yards")) in (int, float)
+        and good_payload["average_gap_yards"] == 22
+        and isinstance(good_payload.get("problem_gaps"), list)
+        and isinstance(good_payload.get("recommendations"), list)
+        and (structured is None or structured == good_payload)
+    )
     check(
         "golf accepts the documented shape",
-        not good.get("isError") and "average_gap_yards" in good_text,
+        not good.get("isError") and good_result,
         good_text[:120],
     )
 

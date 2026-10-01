@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import httpx
+from result_fixtures import CLIP
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
@@ -143,7 +144,7 @@ class RemoteTests(unittest.IsolatedAsyncioTestCase):
     async def test_writes_not_found_and_public_still_anonymous(self):
         denied = await self.request("tools/call", {"name": "nymrel_remote_write_file", "arguments": {}}, "fixture-read")
         self.assertTrue("error" in denied.json() or denied.json()["result"]["isError"])
-        with patch.object(index.server, "_call_tool", return_value={"fixture": "public"}):
+        with patch.object(index.server, "_call_tool", return_value=dict(CLIP)):
             response = await self.request("tools/call", {"name": "nymrel_social_clip_score", "arguments": {"transcript_text": "test"}})
         self.assertFalse(response.json()["result"].get("isError", False))
         self.assertEqual(response.status_code, 200)

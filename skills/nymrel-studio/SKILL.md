@@ -27,7 +27,30 @@ organization.
   access private project data unless an authenticated tool actually provides
   it in the current conversation.
 
-## Handoff boundary
+## Resume a paired-file read
+
+When a Remote read returns `pending: true`, preserve the returned `call.id` or
+`callId`. Resume only with `nymrel_remote_get_read_result` and that ID. Use at
+most three status checks per turn, honoring any returned retry delay. If still
+pending, report the ID and the pending state so the next turn can resume.
+Never resubmit the original read to force completion. A missing or conflicting
+ID is an error, not permission to guess or search more broadly. A revoked or
+expired authorization requires reconnecting, not a substitute credential.
+
+## Bounded workflow review
+
+When a user or repository policy authorizes parallel agent work, delegate only
+independent, bounded questions with a named owner, allowed inputs, time limit,
+and expected evidence. Use the host's available agent tools; do not add paid
+API calls or change the user's default model as a side effect. One worker owns
+each writable path. Give a reviewer read-only scope and have the parent resolve
+findings before accepting the result. If delegation is unavailable, perform
+the same review sequentially and say so. Browser interaction is a fallback for
+tasks requiring a UI; prefer the existing read tool for paired files or public
+audit data. Record the tool, source, result, remaining uncertainty, and next
+action so another turn can continue without repeating side effects.
+
+## Submit a handoff
 
 End a collaboration brief with the appropriate next action:
 

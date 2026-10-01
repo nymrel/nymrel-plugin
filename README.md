@@ -23,13 +23,25 @@ developer-mode connection is not public distribution.
 ## Live bindings
 
 - ChatGPT app: the `.app.json` file binds the installed plugin to the registered Nymrel app.
-- Codex plugin: the `.codex-plugin/plugin.json` manifest discovers both skills, the app, and remote MCP configuration.
+- Portable plugin: `plugin.json` and `mcp.json` declare Agent Plugins 1.0 metadata and the existing hosted connection; both skills and the existing app binding are preserved.
+- Codex plugin: the `.codex-plugin/plugin.json` compatibility manifest discovers both skills, the app, and remote MCP configuration.
 - Claude plugin: the `.claude-plugin/plugin.json` manifest discovers the remote MCP configuration; Claude publication remains separate.
 - MCP: every host connects to `https://mcp.nymrel.com/mcp` through the root `.mcp.json` file.
 
 The hosted service is the source of truth for production tools. The TypeScript
 server in this folder remains a local development harness for the polished
 Website Audit widget; it is not the production MCP endpoint.
+
+The hosted Python service now also contains a separately activated audit app,
+explicit public result schemas, and resumable-read guidance. Its view consumes
+the real hosted result shape; it does not depend on the TypeScript harness.
+See [the implementation record](docs/chatgpt-workflow-adoption-2026-09-29.md).
+
+The public tool workbench adds a shared view for all four tools, with global
+and thread entrypoints, browser display preferences, and explicit sharing of
+results into conversation context. It uses the existing APIs and makes no
+data-tool call on launch. `NYMREL_TOOLS_UI_ENABLED` is independently disabled
+by default pending host acceptance. See [the extension record](docs/plugin-extensions-2026-09-30.md).
 
 ## Product boundary
 
@@ -95,10 +107,11 @@ surfaces. The Nymrel package has the required manifest, registered app binding,
 skills, production MCP URL, review cases, and publisher links. It is not public
 until the OpenAI submission portal records an approved, published version.
 
-The installed ChatGPT connection must be refreshed before submission because
-its current cached tool snapshot still exposes the retired seven-tool catalog;
-the live endpoint and repository contract expose exactly four reviewed public
-tools. Anthropic review remains separate.
+Refresh the installed ChatGPT tool catalog before submission and compare it
+with the deployed endpoint. The 2026-09-29 production probe found four public
+tools plus seven OAuth-protected Remote read tools; it found no UI resources.
+The new audit app remains disabled by default until target-host acceptance.
+Anthropic review remains separate.
 
 See `CONTRIBUTING.md` for the complete local gate and `SECURITY.md` for private
 vulnerability reporting. GitHub Actions execution is separate evidence: a

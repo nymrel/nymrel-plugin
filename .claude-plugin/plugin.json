@@ -1,6 +1,6 @@
 {
   "name": "nymrel",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "description": "Use Nymrel's four production-ready hosted MCP tools from Claude.",
   "author": {
     "name": "Nymrel",

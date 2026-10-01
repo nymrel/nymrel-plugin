@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nymrel website audit</title>
+<style>
+:root{color-scheme:light dark;font-family:var(--font-sans,system-ui,sans-serif);color:var(--color-text-primary,#253c33);background:var(--color-background-primary,#fbf8f1)}
+*{box-sizing:border-box}body{margin:0;padding:24px}main{max-width:860px;margin:auto}header{border-bottom:1px solid var(--color-border-primary,#d4d8ca);padding-bottom:18px}.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase}h1{font-size:clamp(25px,5vw,38px);letter-spacing:-.04em;margin:12px 0}p,li{line-height:1.6;overflow-wrap:anywhere}.muted{color:var(--color-text-secondary,#526458)}.score{font-size:64px;letter-spacing:-.06em;font-weight:650}.score small{font-size:18px;letter-spacing:0;font-weight:400}.summary{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin:24px 0}.badge{border:1px solid var(--color-border-primary,#a9b8a5);border-radius:30px;padding:8px 14px}.panel{padding:18px 22px;border:1px solid var(--color-border-primary,#d4d8ca);border-radius:16px;margin:20px 0}h2{font-size:18px;margin-top:0}li{padding:5px 0}summary{cursor:pointer;font-weight:600;padding:8px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.5;max-height:340px;overflow:auto}footer{font-size:13px}#state{padding:24px 0}[hidden]{display:none!important}@media(prefers-color-scheme:dark){:root{color:var(--color-text-primary,#e3eadd);background:var(--color-background-primary,#19251f)}.muted{color:var(--color-text-secondary,#bdc9bb)}}
+</style>
+</head>
+<body><main>
+<header><div class="eyebrow">Nymrel · Website audit</div><h1>Website audit results.</h1><p id="target" class="muted"></p><p id="identity" class="muted"></p></header>
+<p id="state" role="status">Waiting for a completed audit.</p>
+<section id="report" hidden>
+  <div class="summary"><div class="score"><span id="score"></span><small> / 100</small></div><span id="grade" class="badge"></span><span id="status" class="badge"></span></div>
+  <section class="panel"><h2>Recommended next steps</h2><ol id="recommendations"></ol><p id="empty" hidden>No recommendations were supplied. This does not confirm that all checks passed.</p></section>
+  <section class="panel"><h2>Detected structured data</h2><p id="schemas"></p></section>
+  <details><summary>Inspect the supplied evidence</summary><pre id="evidence"></pre></details>
+  <footer class="muted"><p>This is a point-in-time technical check. The view displays the supplied audit result without fetching or verifying the page again. Missing measurements are unknown; this is not a ranking or discovery forecast.</p></footer>
+</section>
+</main>
+<script>
+(() => {
+  'use strict';
+  const byId = id => document.getElementById(id);
+  let requestId = 0;
+  let fullscreenRequested = false;
+  const pending = new Map();
+  function notify(method, params = {}) { parent.postMessage({jsonrpc:'2.0',method,params}, '*'); }
+  function request(method, params) {
+    return new Promise((resolve, reject) => {
+      const id = ++requestId;
+      const timer = setTimeout(() => {pending.delete(id); reject(new Error('Host unavailable'));}, 8000);
+      pending.set(id, {resolve, reject, timer});
+      parent.postMessage({jsonrpc:'2.0',id,method,params}, '*');
+    });
+  }
+  function context(value) {
+    if (!value || typeof value !== 'object') return;
+    if (value.theme === 'dark' || value.theme === 'light') document.documentElement.style.colorScheme = value.theme;
+    for (const [key, val] of Object.entries(value.styles?.variables || {})) {
+      if (/^--(?:color|font|border|radius)-[a-z0-9-]+$/.test(key) && typeof val === 'string') document.documentElement.style.setProperty(key, val);
+    }
+  }
+  function preferFullscreen(value) {
+    if (!fullscreenRequested && value?.displayMode === 'inline' && value?.availableDisplayModes?.includes('fullscreen')) {
+      fullscreenRequested = true;
+      request('ui/request-display-mode', {mode:'fullscreen'}).then(result => context({displayMode:result?.mode})).catch(() => {});
+    }
+  }
+  function render(result) {
+    if (result?.isError) {byId('report').hidden = true; byId('state').hidden = false; byId('state').textContent = 'The audit could not be displayed. Read the tool response for details.'; return;}
+    const data = result?.structuredContent;
+    const report = data?.report;
+    if (!report || typeof data.requested_url !== 'string' || typeof report.score !== 'number' || !Number.isFinite(report.score) || report.score < 0 || report.score > 100 || typeof report.grade !== 'string' || typeof report.ai_discoverability_status !== 'string' || !Array.isArray(report.recommendations) || !report.recommendations.every(x => typeof x === 'string') || !Array.isArray(report.schema_detected) || !report.schema_detected.every(x => typeof x === 'string')) {
+      byId('report').hidden = true; byId('state').hidden = false; byId('state').textContent = 'A complete audit result is required. Ask Nymrel to audit the page first.'; return;
+    }
+    byId('target').textContent = 'Requested URL supplied by the caller: ' + data.requested_url;
+    byId('identity').textContent = typeof report.url === 'string'
+      ? 'URL in the supplied report: ' + report.url + '. This view does not independently verify page identity.'
+      : 'The supplied report contains no page URL. This view cannot verify which page it describes.';
+    byId('score').textContent = String(report.score);
+    byId('grade').textContent = 'Grade ' + report.grade;
+    byId('status').textContent = report.ai_discoverability_status;
+    byId('recommendations').replaceChildren(...report.recommendations.map(text => {const item = document.createElement('li'); item.textContent = text; return item;}));
+    byId('empty').hidden = report.recommendations.length !== 0;
+    byId('schemas').textContent = report.schema_detected.length ? report.schema_detected.join(', ') : 'No structured data types were reported.';
+    byId('evidence').textContent = JSON.stringify(report, null, 2);
+    byId('state').hidden = true; byId('report').hidden = false;
+  }
+  window.addEventListener('message', event => {
+    if (event.source !== parent || event.data?.jsonrpc !== '2.0') return;
+    const message = event.data;
+    if (pending.has(message.id)) {
+      const entry = pending.get(message.id); clearTimeout(entry.timer); pending.delete(message.id);
+      if (message.error) entry.reject(new Error('Host request failed')); else entry.resolve(message.result);
+    } else if (message.method === 'ui/notifications/tool-result') render(message.params);
+    else if (message.method === 'ui/notifications/tool-input') {byId('report').hidden = true; byId('state').hidden = false; byId('state').textContent = 'Waiting for the completed audit result.';}
+    else if (message.method === 'ui/notifications/host-context-changed') {context(message.params); preferFullscreen(message.params);}
+    else if (message.method === 'ui/notifications/tool-cancelled') render({isError:true});
+  });
+  new ResizeObserver(() => notify('ui/notifications/size-changed', {height:Math.ceil(document.body.getBoundingClientRect().height)})).observe(document.body);
+  request('ui/initialize', {protocolVersion:'2026-01-26', appInfo:{name:'Nymrel website audit',version:'1.0.0'}, appCapabilities:{}})
+    .then(result => {context(result?.hostContext); notify('ui/notifications/initialized'); preferFullscreen(result?.hostContext);})
+    .catch(() => {if (byId('report').hidden) byId('state').textContent = 'This host cannot display the audit app. The same result is available in the conversation.';});
+})();
+</script></body></html>
