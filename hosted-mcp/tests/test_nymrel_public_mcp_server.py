@@ -278,6 +278,98 @@ class ErrorTaxonomyTests(unittest.TestCase):
                 self.assertNotIn("None", message)
 
 
+class RateLimitTimingTests(unittest.TestCase):
+    def _payload(self, status=429, retry_after="900", body=None):
+        response = FakeResponse(status, body or {"error": {"code": "RATE_LIMITED"}})
+        if retry_after is not None:
+            response.headers["Retry-After"] = retry_after
+        client = server.NymrelPublicApiClient(
+            base_url="https://api.example.test/api/v1/tools", bearer_token="",
+            requester=lambda *_args, **_kwargs: response,
+        )
+        with patch.object(server, "_client", return_value=client):
+            return server._call_tool("find-domain", {"keyword_or_concept": "studio"})
+
+    def test_rate_limit_keeps_exact_neutral_wait_time(self):
+        payload = self._payload()
+        self.assertEqual(payload["error"]["retryAfterSeconds"], 900)
+        self.assertEqual(payload["error"]["message"],
+                         "Too many requests have gone to Nymrel. Try again in 900 seconds.")
+        self.assertTrue(payload["error"]["retryable"])
+
+    def test_integer_header_case_and_whitespace_are_supported(self):
+        response = FakeResponse(429, {})
+        response.headers["retry-after"] = " 60 "
+        client = server.NymrelPublicApiClient(
+            base_url="https://api.example.test/api/v1/tools", bearer_token="",
+            requester=lambda *_args, **_kwargs: response,
+        )
+        with patch.object(server, "_client", return_value=client):
+            self.assertEqual(server._call_tool("find-domain", {"keyword_or_concept": "studio"})
+                             ["error"]["retryAfterSeconds"], 60)
+
+    def test_absent_invalid_or_unbounded_header_keeps_existing_safe_error(self):
+        for value in (None, "", "-1", "0", "1.5", "NaN", "Infinity", "1e309",
+                      True, 900, "999999999999999999999999999999", "86401",
+                      "١٢", "Wed, 21 Oct 2026 07:28:00 GMT", "https://pay.example.test/upgrade"):
+            with self.subTest(value=value):
+                payload = self._payload(retry_after=value)
+                self.assertNotIn("retryAfterSeconds", payload["error"])
+                self.assertEqual(payload["error"]["message"], server.MESSAGE_RATE_LIMITED)
+
+    def test_header_bounds_are_neutral_and_exact(self):
+        for value in ("1", "86400"):
+            with self.subTest(value=value):
+                self.assertEqual(self._payload(retry_after=value)["error"]["retryAfterSeconds"], int(value))
+
+    def test_other_statuses_do_not_inherit_rate_limit_timing(self):
+        for status in (400, 403, 500, 503):
+            with self.subTest(status=status):
+                self.assertNotIn("retryAfterSeconds", self._payload(status=status)["error"])
+
+    def test_upstream_upsell_body_is_not_exposed(self):
+        body = {"error": {"code": "RATE_LIMITED", "message": "Upgrade now",
+                          "upgradeUrl": "https://pay.example.test", "retryAfterSeconds": 1}}
+        payload = self._payload(body=body)
+        self.assertEqual(payload["error"]["retryAfterSeconds"], 900)
+        self.assertNotIn("upgrade", str(payload).lower())
+        self.assertNotIn("pay.example", str(payload))
+
+    def test_wait_time_survives_existing_published_error_contract(self):
+        import public_results
+        result = public_results.validate_result(public_results.DomainResult, self._payload())
+        self.assertTrue(result.to_mcp_result().isError)
+        self.assertEqual(result.to_mcp_result().structuredContent["error"]["retryAfterSeconds"], 900)
+
+    def test_hosted_mcp_wire_returns_neutral_timing_without_fallback_or_upsell(self):
+        import asyncio
+        import httpx
+        import index
+
+        response = FakeResponse(429, {"error": {"code": "RATE_LIMITED", "message": "Upgrade now"}})
+        response.headers["Retry-After"] = "900"
+        client = server.NymrelPublicApiClient(
+            base_url="https://api.example.test/api/v1/tools", bearer_token="",
+            requester=lambda *_args, **_kwargs: response,
+        )
+
+        async def call():
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=index.app),
+                                         base_url="http://test") as wire:
+                return await wire.post("/mcp", headers={"Accept": "application/json, text/event-stream"},
+                                       json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {
+                                           "name": "nymrel_audit_website", "arguments": {"url": "https://example.com"}}})
+
+        with patch.object(server, "_client", return_value=client), patch.object(
+                server.native_audit, "audit_website", side_effect=AssertionError("429 must not bypass quota")):
+            result = asyncio.run(call())
+        self.assertEqual(result.status_code, 200)
+        payload = result.json()["result"]
+        self.assertTrue(payload["isError"])
+        self.assertEqual(payload["structuredContent"]["error"]["retryAfterSeconds"], 900)
+        self.assertNotIn("upgrade", str(payload).lower())
+
+
 class ToolFacadeTests(unittest.TestCase):
     def test_tool_returns_the_api_object_not_a_json_string(self):
         client = unittest.mock.Mock()
