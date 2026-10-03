@@ -119,12 +119,14 @@ NOT_DEPLOYED_STATUS = frozenset({404, 405})
 class NymrelPublicApiError(RuntimeError):
     """Safe, public-facing failure from the HTTP transport boundary."""
 
-    def __init__(self, code: str, message: str, *, status: int = 503, retryable: bool = False):
+    def __init__(self, code: str, message: str, *, status: int = 503,
+                 retryable: bool = False, retry_after_seconds: int | None = None):
         super().__init__(message)
         self.code = code
         self.message = message
         self.status = status
         self.retryable = retryable
+        self.retry_after_seconds = retry_after_seconds
 
     def payload(self) -> dict[str, Any]:
         return {
@@ -133,6 +135,8 @@ class NymrelPublicApiError(RuntimeError):
                 "code": self.code,
                 "message": self.message,
                 "retryable": self.retryable,
+                **({"retryAfterSeconds": self.retry_after_seconds}
+                   if self.retry_after_seconds is not None else {}),
             },
         }
 
@@ -250,7 +254,21 @@ def _looks_like_html(response: Any) -> bool:
     return "text/html" in content_type.lower()
 
 
-def _upstream_failure(status_code: int, body: object, parsed: bool) -> NymrelPublicApiError:
+def _retry_after_seconds(response: Any) -> int | None:
+    """Keep bounded HTTP delta-seconds; never reflect an arbitrary header or body."""
+    headers = getattr(response, "headers", None) or {}
+    raw = headers.get("Retry-After", headers.get("retry-after"))
+    if not isinstance(raw, str):
+        return None
+    value = raw.strip()
+    if not re.fullmatch(r"[0-9]{1,5}", value):
+        return None
+    seconds = int(value)
+    return seconds if 1 <= seconds <= 86_400 else None
+
+
+def _upstream_failure(status_code: int, body: object, parsed: bool,
+                      retry_after_seconds: int | None = None) -> NymrelPublicApiError:
     """Map one upstream response onto the taxonomy, with retryable set honestly."""
     upstream_code = _safe_upstream_code(body, default="") if parsed else ""
 
@@ -261,8 +279,11 @@ def _upstream_failure(status_code: int, body: object, parsed: bool) -> NymrelPub
             "UPSTREAM_NOT_DEPLOYED", MESSAGE_NOT_DEPLOYED, status=502, retryable=False
         )
     if status_code == 429:
+        message = (f"Too many requests have gone to Nymrel. Try again in {retry_after_seconds} seconds."
+                   if retry_after_seconds is not None else MESSAGE_RATE_LIMITED)
         return NymrelPublicApiError(
-            "UPSTREAM_RATE_LIMITED", MESSAGE_RATE_LIMITED, status=429, retryable=True
+            "UPSTREAM_RATE_LIMITED", message, status=429, retryable=True,
+            retry_after_seconds=retry_after_seconds,
         )
     if 500 <= status_code < 600:
         return NymrelPublicApiError(
@@ -402,7 +423,8 @@ class NymrelPublicApiClient:
             body, parsed = None, False
 
         if not 200 <= status_code < 300:
-            raise _upstream_failure(status_code, body, parsed)
+            raise _upstream_failure(status_code, body, parsed,
+                                    _retry_after_seconds(response) if status_code == 429 else None)
 
         if not parsed or not isinstance(body, dict):
             # A 200 carrying an app shell instead of JSON is the same rolling-out
