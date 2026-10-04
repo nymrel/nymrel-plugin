@@ -32,6 +32,7 @@ import nymrel_remote_read as remote_read  # noqa: E402
 import audit_ui  # noqa: E402
 import workbench_ui  # noqa: E402
 import public_results  # noqa: E402
+import public_scope  # noqa: E402
 
 from starlette.applications import Starlette  # noqa: E402
 
@@ -236,6 +237,7 @@ server.mcp._mcp_server.list_tools()(_list_tools_with_explicit_security)
 # --- ASGI plumbing ----------------------------------------------------------
 
 _mcp_app = server.mcp.http_app(path=MCP_PATH, stateless_http=True, json_response=True)
+_public_only_app = public_scope.PublicOnlyApp(server.mcp)
 
 # The session manager's task group is bound to both the event loop and the task
 # that started it. A dedicated owner task therefore enters and exits each
@@ -281,6 +283,7 @@ async def _ensure_lifespan() -> None:
 
 async def _close_lifespan_for_current_loop() -> None:
     """Signal the owner task and await deterministic same-task cleanup."""
+    await _public_only_app.close_for_current_loop()
     loop = asyncio.get_running_loop()
     state = _lifespans.pop(loop, None)
     _locks.pop(loop, None)
@@ -447,11 +450,22 @@ async def _dispatch_app(
     oauth_routes_app=None,
 ):
     """Serve the MCP app, optionally delegating OAuth provider routes."""
+    if scope["type"] == "http" and public_scope.uses_public_path(scope):
+        await _public_only_app(scope, receive, send)
+        return
     discovery = _discovery(oauth_routes_app is not None)
     if scope["type"] == "lifespan":
         # Delegate to the real app so a full ASGI server still gets clean
         # startup/shutdown; the lazy shim covers platforms that skip this.
-        await _mcp_app(scope, receive, send)
+        async def lifecycle_send(message):
+            if message["type"] in {"lifespan.shutdown.complete", "lifespan.shutdown.failed"}:
+                await _public_only_app.close_for_current_loop()
+            await send(message)
+
+        try:
+            await _mcp_app(scope, receive, lifecycle_send)
+        finally:
+            await _public_only_app.close_for_current_loop()
         return
 
     if scope["type"] != "http":
@@ -556,6 +570,16 @@ async def app(scope, receive, send):
     await _dispatch_app(scope, receive, send)
 
 
+def _public_before_auth(wrapped):
+    """Keep public requests outside the developer verifier/context middleware."""
+    async def public_or_authenticated(scope, receive, send):
+        if scope["type"] == "http" and public_scope.uses_public_path(scope):
+            await _public_only_app(scope, receive, send)
+            return
+        await wrapped(scope, receive, send)
+    return public_or_authenticated
+
+
 def build_private_handoff_app(auth_provider):
     """Build the hybrid public/private app with an injected AuthProvider.
 
@@ -603,7 +627,7 @@ def build_private_handoff_app(auth_provider):
             *middleware.args,
             **middleware.kwargs,
         )
-    return wrapped
+    return _public_before_auth(wrapped)
 
 
 # Select the production provider only when the explicit feature flag is on.
@@ -631,7 +655,7 @@ def build_remote_read_app(auth_provider):
     wrapped = remote_app
     for middleware in reversed(auth_provider.get_middleware()):
         wrapped = middleware.cls(wrapped, *middleware.args, **middleware.kwargs)
-    return wrapped
+    return _public_before_auth(wrapped)
 
 
 if remote_read.enabled():
