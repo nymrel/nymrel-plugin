@@ -65,6 +65,7 @@ class ClipSignals(EvidenceModel):
 
 
 class ClipResult(EvidenceModel):
+    target_platform: Literal["tiktok", "instagram_reels", "youtube_shorts", "x"]
     hook_score: Score
     hook_strength: str
     signals: ClipSignals
