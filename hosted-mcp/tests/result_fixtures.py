@@ -5,6 +5,7 @@ AUDIT = {
     "full_report_url": "https://nymrel.com/site-audit",
 }
 CLIP = {
+    "target_platform": "tiktok",
     "hook_score": 35, "hook_strength": "weak", "suggested_edits": ["Shorten the opening."],
     "signals": {
         "opening_word_count": 13, "opens_with_hook_pattern": False, "addresses_viewer": True,

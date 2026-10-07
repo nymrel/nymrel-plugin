@@ -108,6 +108,43 @@ class PublicScopeTests(unittest.IsolatedAsyncioTestCase):
             response = await self.request("tools/call", {"name": "nymrel_social_clip_score", "arguments": {"transcript_text": "test"}})
         self.assertEqual(response.json()["result"]["structuredContent"], CLIP)
 
+    async def test_clip_platform_aliases_normalize_and_echo_canonical_platform(self):
+        aliases = {
+            "reels": "instagram_reels",
+            "shorts": "youtube_shorts",
+            "instagram_reels": "instagram_reels",
+            "youtube_shorts": "youtube_shorts",
+            "tiktok": "tiktok",
+            "x": "x",
+        }
+        for supplied, normalized in aliases.items():
+            with self.subTest(platform=supplied), patch.object(
+                index.server, "_call_tool", return_value=dict(CLIP),
+            ) as call:
+                response = await self.request("tools/call", {
+                    "name": "nymrel_social_clip_score",
+                    "arguments": {"transcript_text": "Fixture transcript", "target_platform": supplied},
+                })
+            self.assertEqual(call.call_args.args[1], {
+                "transcript_text": "Fixture transcript", "target_platform": normalized,
+            })
+            self.assertEqual(
+                response.json()["result"]["structuredContent"],
+                {**CLIP, "target_platform": normalized},
+            )
+
+        catalog = {tool["name"]: tool for tool in (await self.request("tools/list")).json()["result"]["tools"]}
+        clip = catalog["nymrel_social_clip_score"]
+        self.assertEqual(set(clip["inputSchema"]["properties"]["target_platform"]["enum"]), set(aliases))
+        clip_success_schema = next(
+            schema for schema in clip["outputSchema"]["anyOf"]
+            if "target_platform" in schema.get("properties", {})
+        )
+        self.assertEqual(
+            set(clip_success_schema["properties"]["target_platform"]["enum"]),
+            {"tiktok", "instagram_reels", "youtube_shorts", "x"},
+        )
+
     async def test_error_and_retry_information_survive_audit_adapter(self):
         error = {"status": "error", "error": {"code": "RATE_LIMITED", "message": "Try later.", "retryable": True},
                  "retry_after_seconds": 17}

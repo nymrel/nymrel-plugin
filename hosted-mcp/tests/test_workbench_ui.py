@@ -77,7 +77,11 @@ async def test_disabled_workbench_hidden_and_uncallable_independently_of_audit()
 async def test_workbench_uses_existing_public_data_contracts(name, args, payload):
     with patch.dict(os.environ, {ui.FEATURE_ENV: "true"}), patch.object(index.server, "_call_tool", return_value=payload) as call:
         result = await rpc("tools/call", {"name": name, "arguments": args})
-    assert not result.get("isError") and result["structuredContent"] == payload
+    expected = payload
+    if name == "nymrel_social_clip_score":
+        expected = {**payload, "target_platform": "instagram_reels"}
+        assert call.call_args.args[1]["target_platform"] == "instagram_reels"
+    assert not result.get("isError") and result["structuredContent"] == expected
     assert call.call_count == 1
 
 

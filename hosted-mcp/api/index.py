@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, parse_qsl, urlencode, urlsplit
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from typing import Annotated  # noqa: E402
+from typing import Annotated, Literal  # noqa: E402
 
 from pydantic import Field  # noqa: E402
 from mcp.types import ListToolsRequest  # noqa: E402
@@ -64,6 +64,18 @@ PUBLIC_TOOL_NAMES = (
 #: tell it why. The pattern is the upstream's own regex, so the advertised
 #: contract and the enforced one are the same contract.
 Tld = Annotated[str, Field(pattern=r"^\.[a-z]{2,24}$", examples=[".com", ".ai", ".app", ".dev"])]
+
+ClipPlatform = Literal[
+    "tiktok", "reels", "shorts", "instagram_reels", "youtube_shorts", "x",
+]
+CLIP_PLATFORM_ALIASES = {
+    "tiktok": "tiktok",
+    "reels": "instagram_reels",
+    "shorts": "youtube_shorts",
+    "instagram_reels": "instagram_reels",
+    "youtube_shorts": "youtube_shorts",
+    "x": "x",
+}
 
 _provider = getattr(server.mcp, "local_provider", server.mcp)
 
@@ -171,7 +183,9 @@ def nymrel_find_domain(
     },
 )
 @public_results.contract(public_results.ClipResult)
-def nymrel_social_clip_score(transcript_text: str, target_platform: str = "tiktok") -> dict[str, Any]:
+def nymrel_social_clip_score(
+    transcript_text: str, target_platform: ClipPlatform = "tiktok",
+) -> dict[str, Any]:
     """Measure what the opening of a short-video transcript actually does.
 
     Returns each measured signal - opening word count, whether it opens on a
@@ -179,14 +193,22 @@ def nymrel_social_clip_score(transcript_text: str, target_platform: str = "tikto
     the total word count sits in the platform's range - plus `hook_score`, a
     0-100 rollup of exactly those signals, and suggested edits.
 
+    `target_platform` accepts `tiktok`, `instagram_reels`, `youtube_shorts`,
+    or `x`. The `reels` and `shorts` aliases normalize to their corresponding
+    canonical IDs, which the result echoes.
+
     Every figure describes the text the caller supplied. This does not estimate
     reach, views, retention or virality; those are outcomes in the world that
     this tool never observes. Read `signals` to see what moved the score.
     """
-    return server._call_tool(
+    normalized_platform = CLIP_PLATFORM_ALIASES[target_platform]
+    result = server._call_tool(
         "social-clip-score",
-        {"transcript_text": transcript_text, "target_platform": target_platform},
+        {"transcript_text": transcript_text, "target_platform": normalized_platform},
     )
+    if result.get("status") == "error":
+        return result
+    return {**result, "target_platform": normalized_platform}
 
 
 # These tools are present in the hosted registry but feature-hidden unless the
