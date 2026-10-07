@@ -12,8 +12,8 @@ const asset = await readFile(path.join(root, "hosted-mcp", "api", "assets", "wor
 const acceptedClipPlatforms = new Set(["tiktok", "instagram_reels", "youtube_shorts", "x"]);
 for (const notice of [
   "@modelcontextprotocol/ext-apps 1.7.5 (MIT)",
-  "@modelcontextprotocol/sdk 1.30.0 (MIT)",
-  "zod 4.5.4 (MIT)",
+  "@modelcontextprotocol/sdk 1.32.0 (MIT)",
+  "zod 4.6.5 (MIT)",
   "zod-to-json-schema 3.25.2 (ISC)",
   "Permission is hereby granted, free of charge",
   "The above copyright notice and this permission notice shall be included",
