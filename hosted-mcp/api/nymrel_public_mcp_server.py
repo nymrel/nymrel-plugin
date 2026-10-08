@@ -480,10 +480,16 @@ _UPSTREAM_ABSENT = {
 def nymrel_audit_website(url: str) -> dict[str, Any]:
     """Audit one public website for SEO, schema, and AI discoverability.
 
-    Fetches the page, its robots.txt, sitemap.xml and llms.txt, then reports a
-    scored breakdown: which AI crawlers are named in robots, which JSON-LD
-    types are present, and what to fix. Every field is measured from the
-    response bytes.
+    Returns the score, grade, discoverability status, detected schema types
+    and recommendations supplied by the audit. Results may contain only an
+    aggregate summary; additional per-check evidence may be included.
+
+    Report robots.txt, sitemap.xml, llms.txt or AI-crawler checks only when
+    their evidence is present in the result; absent checks are unreported,
+    not proven by an aggregate score or PASS. Preserve unmeasured checks
+    and empty recommendations without inventing findings. This is not a
+    ranking guarantee or a security, legal-compliance or crawler-access
+    certification.
     """
     result = _call_tool("audit-website", {"url": url})
 
