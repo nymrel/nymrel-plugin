@@ -1,5 +1,6 @@
 """Synthetic ASGI tests for public isolation; no issuer or device is contacted."""
 import asyncio
+import copy
 import json
 import os
 import sys
@@ -112,9 +113,13 @@ class PublicScopeTests(unittest.IsolatedAsyncioTestCase):
         detailed = {**AUDIT, "checks": [{"check": "robots.txt present", "measured": False,
                                        "passed": None, "detail": "not checked (time budget)"}],
                     "unmeasured_checks": ["robots.txt present"], "scored_out_of": 50}
-        for upstream in (dict(AUDIT), detailed):
+        for fixture in (AUDIT, detailed):
             for path in ("/public/mcp", "/mcp"):
-                with self.subTest(detailed=upstream is detailed, path=path), patch.object(
+                upstream = copy.deepcopy(fixture)
+                expected = copy.deepcopy(fixture)
+                if path == "/public/mcp":
+                    expected.pop("full_report_url")
+                with self.subTest(detailed=fixture is detailed, path=path), patch.object(
                     index.server, "_call_tool", return_value=upstream,
                 ) as call, patch.object(
                     index.server.native_audit, "audit_website",
@@ -125,8 +130,7 @@ class PublicScopeTests(unittest.IsolatedAsyncioTestCase):
                     }, path=path)
                 result = response.json()["result"]
                 self.assertFalse(result.get("isError", False))
-                expected = {key: value for key, value in upstream.items()
-                            if path == "/mcp" or key != "full_report_url"}
+                self.assertEqual(upstream, fixture)
                 self.assertEqual(result["structuredContent"], expected)
                 self.assertEqual(json.loads(result["content"][0]["text"]), expected)
                 call.assert_called_once_with("audit-website", {"url": "https://example.com"})
