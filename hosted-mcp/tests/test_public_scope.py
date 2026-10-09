@@ -1,5 +1,6 @@
 """Synthetic ASGI tests for public isolation; no issuer or device is contacted."""
 import asyncio
+import copy
 import json
 import os
 import sys
@@ -96,6 +97,43 @@ class PublicScopeTests(unittest.IsolatedAsyncioTestCase):
         catalog = (await self.request("tools/list")).json()["result"]["tools"]
         audit = next(tool for tool in catalog if tool["name"] == "nymrel_audit_website")
         self.assertNotIn("full_report_url", json.dumps(audit["outputSchema"]))
+
+    async def test_audit_descriptor_limits_claims_to_returned_evidence_on_both_routes(self):
+        for path in ("/public/mcp", "/mcp"):
+            with self.subTest(path=path):
+                catalog = (await self.request("tools/list", path=path)).json()["result"]["tools"]
+                audit = next(tool for tool in catalog if tool["name"] == "nymrel_audit_website")
+                description = " ".join(audit["description"].split())
+                self.assertIn("Results may contain only an aggregate summary", description)
+                self.assertIn("robots.txt, sitemap.xml, llms.txt or AI-crawler checks", description)
+                self.assertIn("absent checks are unreported", description)
+                self.assertNotIn("Every field is measured from the response bytes", description)
+
+    async def test_audit_preserves_aggregate_and_optional_detail_without_extra_measurements(self):
+        detailed = {**AUDIT, "checks": [{"check": "robots.txt present", "measured": False,
+                                       "passed": None, "detail": "not checked (time budget)"}],
+                    "unmeasured_checks": ["robots.txt present"], "scored_out_of": 50}
+        for fixture in (AUDIT, detailed):
+            for path in ("/public/mcp", "/mcp"):
+                upstream = copy.deepcopy(fixture)
+                expected = copy.deepcopy(fixture)
+                if path == "/public/mcp":
+                    expected.pop("full_report_url")
+                with self.subTest(detailed=fixture is detailed, path=path), patch.object(
+                    index.server, "_call_tool", return_value=upstream,
+                ) as call, patch.object(
+                    index.server.native_audit, "audit_website",
+                    side_effect=AssertionError("A successful upstream audit must not be remeasured"),
+                ):
+                    response = await self.request("tools/call", {
+                        "name": "nymrel_audit_website", "arguments": {"url": "https://example.com"},
+                    }, path=path)
+                result = response.json()["result"]
+                self.assertFalse(result.get("isError", False))
+                self.assertEqual(upstream, fixture)
+                self.assertEqual(result["structuredContent"], expected)
+                self.assertEqual(json.loads(result["content"][0]["text"]), expected)
+                call.assert_called_once_with("audit-website", {"url": "https://example.com"})
 
     async def test_other_public_schemas_and_results_match_developer_tools(self):
         public = {tool["name"]: tool for tool in (await self.request("tools/list")).json()["result"]["tools"]}
