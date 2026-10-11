@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { chromium } from "playwright";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const asset = await readFile(path.join(root, "hosted-mcp", "api", "assets", "workbench.html"), "utf8");
+const screenshotDirectory = process.env.NYMREL_UI_SCREENSHOT_DIR;
+if (screenshotDirectory) await mkdir(screenshotDirectory, {recursive:true});
 // Contract from nymrel/nymrel src/app/api/v1/tools/_lib/contracts.ts at
 // upstream main 814303a9ef52501e477a5ee10517b87debf4cf75.
 const acceptedClipPlatforms = new Set(["tiktok", "instagram_reels", "youtube_shorts", "x"]);
@@ -44,6 +46,10 @@ const hostPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="v
       const queue = this.queues[name] || (this.queues[name] = []);
       queue.push({result,delay});
     },
+    reject(name, error) {
+      const queue = this.queues[name] || (this.queues[name] = []);
+      queue.push({error});
+    },
     notify(method, params) { frame.contentWindow.postMessage({jsonrpc:'2.0',method,params}, '*'); },
     changeContext(patch) {
       this.context = {...this.context,...patch};
@@ -54,8 +60,9 @@ const hostPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="v
     nymrel_audit_website:{score:84,grade:'B',ai_discoverability_status:'Some signals found',recommendations:[],schema_detected:[],full_report_url:'https://example.test/report'},
     nymrel_find_domain:{suggestions:[{domain:'sample.example',available:false,availability_checked:false,brandability_score:72,brandability_factors:{label_length:6,contains_digit:false,contains_hyphen:false,contains_vowel:true}}]},
     nymrel_golf_bag_gap:{average_gap_yards:13,problem_gaps:['A < 10 yard gap'],recommendations:['Check the 5 iron carry.']},
-    nymrel_social_clip_score:{hook_score:77,hook_strength:'Strong',signals:{opening_word_count:7,opens_with_hook_pattern:true,addresses_viewer:true,has_curiosity_signal:false,opening_contains_number:false,total_word_count:21,platform_word_range:[20,40],total_word_count_in_platform_range:true},suggested_edits:['Try a shorter opening.']}
+    nymrel_social_clip_score:{target_platform:'tiktok',hook_score:77,hook_strength:'Strong',signals:{opening_word_count:7,opens_with_hook_pattern:true,addresses_viewer:true,has_curiosity_signal:false,opening_contains_number:false,total_word_count:21,platform_word_range:[20,40],total_word_count_in_platform_range:true},suggested_edits:['Try a shorter opening.']}
   };
+  state.defaults = defaults;
   window.addEventListener('message', (event) => {
     if (event.source !== frame.contentWindow || event.data?.jsonrpc !== '2.0') return;
     const message = event.data;
@@ -78,9 +85,12 @@ const hostPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="v
       const name = message.params?.name;
       const queue = state.queues[name] || [];
       const next = queue.shift();
-      const fixture = next || {result:{structuredContent:defaults[name] || {},content:[{type:'text',text:'ok'}]}};
+      const data = name === 'nymrel_social_clip_score' ? {...defaults[name], target_platform:message.params.arguments.target_platform} : defaults[name];
+      const fixture = next || {result:{structuredContent:data || {},content:[{type:'text',text:'ok'}]}};
       state.calls.push({name,arguments:message.params?.arguments || {}});
-      setTimeout(() => respond(fixture.result), fixture.delay || 0);
+      setTimeout(() => fixture.error
+        ? frame.contentWindow.postMessage({jsonrpc:'2.0',id:message.id,error:fixture.error}, '*')
+        : respond(fixture.result), fixture.delay || 0);
     } else if (message.method === 'ui/notifications/size-changed' || message.method === 'notifications/message') {
       // Notifications require no response.
     }
@@ -95,6 +105,8 @@ const server = createServer((request, response) => {
   } else if (request.url?.startsWith("/?mode=") || request.url === "/") {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
     response.end(hostPage);
+  } else if (request.url === "/favicon.ico") {
+    response.writeHead(204); response.end();
   } else {
     response.writeHead(404); response.end();
   }
@@ -183,7 +195,7 @@ try {
   assert.ok(clipPlatformValues.every((platform) => acceptedClipPlatforms.has(platform)), "every displayed platform is accepted by the current public API contract");
   await frame.locator("#clip-transcript").fill("Stop doing this in Python right now.");
   await frame.locator("#clip-platform").selectOption("youtube_shorts");
-  await page.evaluate(() => window.__testHost.respond("nymrel_social_clip_score", {structuredContent:{hook_score:77,hook_strength:"Strong",signals:{opening_word_count:7,opens_with_hook_pattern:true,addresses_viewer:true,has_curiosity_signal:false,opening_contains_number:false,total_word_count:21,platform_word_range:[20,40],total_word_count_in_platform_range:true},suggested_edits:["Try a shorter opening."]},content:[{type:"text",text:"clip result"}]}, 700));
+  await page.evaluate(() => window.__testHost.respond("nymrel_social_clip_score", {structuredContent:{target_platform:"youtube_shorts",hook_score:77,hook_strength:"Strong",signals:{opening_word_count:7,opens_with_hook_pattern:true,addresses_viewer:true,has_curiosity_signal:false,opening_contains_number:false,total_word_count:21,platform_word_range:[20,40],total_word_count_in_platform_range:true},suggested_edits:["Try a shorter opening."]},content:[{type:"text",text:"clip result"}]}, 700));
   await frame.locator("#form-clip button[type=submit]").click();
   await frame.getByText("Measuring the opening…").waitFor();
   assert.equal(await frame.locator("#form-clip button[type=submit]").isDisabled(), true, "an in-flight tool call cannot be duplicated");
@@ -194,10 +206,10 @@ try {
   await chooseTool(frame, "clip");
   await frame.getByText("77 / 100").waitFor();
   assert.deepEqual(await getHost(page, "window.__testHost.calls.at(-1).arguments"), {transcript_text:"Stop doing this in Python right now.",target_platform:"youtube_shorts"});
-  const clipSuccess = {structuredContent:{hook_score:77,hook_strength:"Strong",signals:{opening_word_count:7,opens_with_hook_pattern:true,addresses_viewer:true,has_curiosity_signal:false,opening_contains_number:false,total_word_count:21,platform_word_range:[20,40],total_word_count_in_platform_range:true},suggested_edits:["Try a shorter opening."]},content:[{type:"text",text:"clip result"}]};
+  const clipSuccess = {structuredContent:{target_platform:"tiktok",hook_score:77,hook_strength:"Strong",signals:{opening_word_count:7,opens_with_hook_pattern:true,addresses_viewer:true,has_curiosity_signal:false,opening_contains_number:false,total_word_count:21,platform_word_range:[20,40],total_word_count_in_platform_range:true},suggested_edits:["Try a shorter opening."]},content:[{type:"text",text:"clip result"}]};
   for (const platform of clipPlatformValues) {
     await frame.locator("#clip-platform").selectOption(platform);
-    await page.evaluate((result) => window.__testHost.respond("nymrel_social_clip_score", result, 40), clipSuccess);
+    await page.evaluate((result) => window.__testHost.respond("nymrel_social_clip_score", result, 40), {...clipSuccess, structuredContent:{...clipSuccess.structuredContent,target_platform:platform}});
     await frame.locator("#form-clip button[type=submit]").click();
     await frame.getByText("Measuring the opening…").waitFor();
     await frame.locator("#status-clip").getByText("Result ready.", { exact: false }).waitFor();
@@ -210,7 +222,7 @@ try {
   await page.evaluate(() => window.__testHost.respond("nymrel_find_domain", {isError:true,structuredContent:{status:"error",error:{code:"UPSTREAM_NOT_DEPLOYED",message:"Nymrel could not check this idea right now."}},content:[{type:"text",text:"Nymrel could not check this idea right now."}]}));
   await chooseTool(frame, "domains");
   await frame.locator("#form-domains button[type=submit]").click();
-  await frame.getByText("Nymrel could not check this idea right now.", { exact: true }).waitFor();
+  await frame.locator("#status-domains").getByText("Nymrel could not check this idea right now.", { exact: false }).waitFor();
   assert.equal(await frame.locator("#form-domains button[type=submit]").isDisabled(), false, "failed calls can be retried");
   await page.evaluate(() => window.__testHost.respond("nymrel_find_domain", {structuredContent:{suggestions:[{domain:"retried.example",available:true,availability_checked:true,brandability_score:80,brandability_factors:{label_length:7,contains_digit:false,contains_hyphen:false,contains_vowel:true}}]},content:[{type:"text",text:"retry ok"}]}));
   await frame.locator("#form-domains button[type=submit]").click();
@@ -234,6 +246,147 @@ try {
   const widths = await frame.locator("body").evaluate((body) => ({ scroll: body.scrollWidth, client: body.clientWidth }));
   assert.ok(widths.scroll <= widths.client + 1, `mobile content overflows horizontally (${JSON.stringify(widths)})`);
   assert.equal(await getHost(page, "window.__testHost.calls.some((call) => call.name === 'nymrel_open_tools')"), false, "the UI never calls its opener again");
+
+  // Recovery is exercised through SDK messages, with synthetic native payloads
+  // only. Each tool must retain its successful data and submitted input context.
+  const recoveryTools = [
+    {id:"website", name:"nymrel_audit_website", field:"#website-url", initial:"https://first.example.test", edited:"https://second.example.test"},
+    {id:"domains", name:"nymrel_find_domain", field:"#domain-idea", initial:"first concept", edited:"second concept"},
+    {id:"golf", name:"nymrel_golf_bag_gap", field:".club-name", initial:"First iron", edited:"Second iron"},
+    {id:"clip", name:"nymrel_social_clip_score", field:"#clip-transcript", initial:"First spoken hook.", edited:"Second spoken hook."},
+  ];
+  for (const tool of recoveryTools) {
+    const recoveryPage = await browser.newPage({viewport:{width:320,height:780}});
+    recoveryPage.setDefaultTimeout(8000);
+    await recoveryPage.goto(base);
+    const recoveryFrame = recoveryPage.frameLocator("#workbench-frame");
+    await recoveryFrame.locator("#workbench").waitFor({state:"visible"});
+    await chooseTool(recoveryFrame, tool.id);
+    const input = recoveryFrame.locator(tool.field).first();
+    const submit = recoveryFrame.locator(`#form-${tool.id} button[type=submit]`);
+    const status = recoveryFrame.locator(`#status-${tool.id}`);
+    await submit.focus();
+    await submit.press("Enter");
+    assert.equal(await input.evaluate((element) => element === document.activeElement), true, `${tool.id} validation focuses the first invalid field`);
+    assert.equal(await input.getAttribute("aria-invalid"), "true");
+    assert.match(await input.getAttribute("aria-describedby"), new RegExp(`status-${tool.id}`));
+    assert.equal(await getHost(recoveryPage, "window.__testHost.calls.length"), 0);
+    await input.fill(tool.initial);
+    assert.equal(await input.getAttribute("aria-invalid"), null, "editing clears the field error marker");
+    if (tool.id === "golf") await recoveryFrame.locator(".club-carry").fill("165");
+
+    await recoveryPage.evaluate((name) => window.__testHost.respond(name, {structuredContent:{},content:[{type:"text",text:"not a report"}]}), tool.name);
+    await submit.click();
+    await status.getByText("Nymrel returned an incomplete or invalid result.", {exact:false}).waitFor();
+    assert.equal(await status.getAttribute("data-kind"), "error");
+    assert.equal(await recoveryFrame.locator("#result").isVisible(), false, "a malformed first response creates no report");
+    assert.equal(await recoveryFrame.getByRole("button", {name:/Use .*result in conversation/}).count(), 0);
+
+    await submit.click();
+    await status.getByText("Result ready.", {exact:false}).waitFor();
+    await recoveryFrame.locator("#settings summary").click();
+    await recoveryFrame.locator("#show-evidence").check();
+    const evidence = recoveryFrame.locator('pre[data-testid="evidence"]');
+    const goodData = await evidence.textContent();
+    const goodArgs = await getHost(recoveryPage, "window.__testHost.calls.at(-1).arguments");
+    await input.fill(tool.edited);
+    const title = recoveryFrame.locator('[data-testid="result-title"]');
+    const provenance = recoveryFrame.locator('[data-testid="result-provenance"]');
+    await provenance.getByText("Inputs have changed.", {exact:false}).waitFor();
+    assert.match(await title.textContent(), /previous successful result/);
+    await recoveryFrame.getByRole("button", {name:"Use previous result in conversation"}).click();
+    await recoveryPage.waitForFunction(() => window.__testHost.updates.length === 1);
+    let summary = await getHost(recoveryPage, "window.__testHost.updates.at(-1).content[0].text");
+    assert.match(summary, /^Previous successful result\./);
+    assert.ok(summary.includes(tool.initial), "conversation summary carries the result's submitted inputs");
+    if (tool.id === "golf") assert.ok(summary.includes(`${goodArgs.clubs[0].carry_distance_yards} yards`));
+    if (tool.id === "clip") assert.ok(summary.includes("Target platform: TikTok"));
+    assert.ok(!summary.includes(tool.edited), "edited fields cannot be passed off as the old report's inputs");
+    await input.fill(tool.initial);
+
+    const serviceError = {status:"error",error:{code:"UPSTREAM_UNAVAILABLE",message:"This tool is temporarily unavailable.",retryable:true}};
+    const invalidData = JSON.parse(goodData);
+    if (tool.id === "website") invalidData.score = "84";
+    if (tool.id === "domains") invalidData.suggestions[0].availability_checked = "false";
+    if (tool.id === "golf") invalidData.average_gap_yards = "13";
+    if (tool.id === "clip") invalidData.target_platform = "x";
+    for (const failure of [
+      {label:"service",result:{isError:true,structuredContent:serviceError,content:[{type:"text",text:"service error"}]}},
+      {label:"error envelope",result:{structuredContent:serviceError,content:[]}},
+      {label:"transport",error:{code:-32603,message:"Synthetic transport failure"}},
+      {label:"timeout",error:{code:-32001,message:"Synthetic timeout"}},
+      {label:"malformed",result:{structuredContent:{},content:[{type:"text",text:"{}"}]}},
+      {label:"invalid measurement or platform",result:{structuredContent:invalidData,content:[]}},
+      {label:"invalid structured content wins over text",result:{structuredContent:{},content:[{type:"text",text:goodData}]}},
+      {label:"structured array",result:{structuredContent:[],content:[{type:"text",text:goodData}]}},
+      {label:"unstructured text",result:{content:[{type:"text",text:"The tool says it is ready."}]}},
+    ]) {
+      await recoveryPage.evaluate(({name,failure}) => {
+        if (failure.error) window.__testHost.reject(name, failure.error);
+        else window.__testHost.respond(name, failure.result, 80);
+      }, {name:tool.name,failure});
+      await submit.click();
+      await status.locator('text=/You can try again\\./').waitFor();
+      assert.equal(await status.getAttribute("data-kind"), "error", `${tool.id}/${failure.label} keeps stable error semantics`);
+      assert.ok(!(await status.textContent()).includes("Result ready"));
+      assert.equal(await evidence.textContent(), goodData, `${tool.id}/${failure.label} preserves the successful data`);
+      assert.match(await title.textContent(), /previous successful result/);
+      assert.match(await provenance.textContent(), /latest request failed/);
+      assert.equal(await submit.isDisabled(), false);
+      assert.equal(await recoveryFrame.locator(`#form-${tool.id}`).getAttribute("aria-busy"), "false");
+    }
+    if (screenshotDirectory) {
+      const fitFrame = async () => {
+        const height = await recoveryFrame.locator("body").evaluate((body) => body.scrollHeight);
+        await recoveryPage.locator("#workbench-frame").evaluate((element, frameHeight) => { element.style.height = `${frameHeight}px`; }, height);
+      };
+      await fitFrame();
+      await recoveryPage.screenshot({path:path.join(screenshotDirectory, `${tool.id}-recovery-320.png`),fullPage:true});
+      await recoveryPage.setViewportSize({width:1180,height:900});
+      await fitFrame();
+      await recoveryPage.screenshot({path:path.join(screenshotDirectory, `${tool.id}-recovery-desktop.png`),fullPage:true});
+      await recoveryPage.setViewportSize({width:320,height:780});
+      await recoveryPage.locator("#workbench-frame").evaluate((element) => { element.style.height = "100vh"; });
+    }
+    // Sharing a previous result is a separate operation and cannot clear the
+    // request's error status or silently submit the edited fields.
+    const failureMessage = await status.textContent();
+    await recoveryFrame.getByRole("button", {name:"Use previous result in conversation"}).click();
+    await recoveryFrame.locator('[data-testid="share-status"]').getByText("The result summary is now in the conversation.").waitFor();
+    assert.equal(await status.textContent(), failureMessage);
+    assert.equal(await recoveryFrame.getByRole("button", {name:"Use previous result in conversation"}).evaluate((element) => element === document.activeElement), true, "sharing preserves keyboard focus");
+
+    await recoveryPage.evaluate(({name,data}) => window.__testHost.respond(name, {content:[{type:"text",text:data}]}, 350), {name:tool.name,data:goodData});
+    await submit.click();
+    await recoveryFrame.getByRole("button", {name:"Use previous result in conversation"}).waitFor();
+    await recoveryFrame.getByRole("button", {name:"Use previous result in conversation"}).click();
+    assert.equal(await submit.isDisabled(), true, "sharing does not enable an in-flight submit");
+    await input.fill(tool.edited);
+    await status.getByText("Result ready for the submitted inputs.", {exact:false}).waitFor();
+    assert.match(await title.textContent(), /previous successful result/, "input changes during a request remain explicit after success");
+    await recoveryFrame.getByText("Inputs used for this result", {exact:true}).click();
+    const shownInputs = await recoveryFrame.locator(".result-inputs pre").textContent();
+    assert.ok(shownInputs.includes(tool.initial), "submitted input values stay visible after a later edit");
+    assert.ok(!shownInputs.includes(tool.edited));
+    assert.equal(await evidence.textContent(), goodData);
+    const narrowBounds = await recoveryFrame.locator("body").evaluate((body) => ({scroll:body.scrollWidth,client:body.clientWidth}));
+    assert.ok(narrowBounds.scroll <= narrowBounds.client + 1, `${tool.id} result/input evidence overflows at 320px: ${JSON.stringify(narrowBounds)}`);
+    if (tool.id === "golf") assert.ok(await input.evaluate((element) => element.getBoundingClientRect().width) >= 150, "golf club name stays readable at 320px");
+    const tapTargets = await recoveryFrame.locator("button:visible,summary:visible").evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height));
+    assert.ok(tapTargets.every((height) => height >= 44), `${tool.id} has a tap target smaller than 44px`);
+    await submit.click();
+    await status.getByText("Result ready.", {exact:false}).waitFor();
+    assert.ok(!(await title.textContent()).includes("previous successful result"), "a successful retry replaces the previous result and its provenance");
+    assert.match(await provenance.textContent(), /current inputs/);
+    assert.ok((await recoveryFrame.locator(".result-inputs pre").textContent()).includes(tool.edited));
+    const preferences = await getHost(recoveryPage, "JSON.parse(localStorage.getItem('nymrel-workbench-preferences-v1'))");
+    assert.deepEqual(Object.keys(preferences).sort(), ["defaultTool","platform","showEvidence"], "submitted inputs and results are never persisted");
+    await recoveryFrame.locator("#tab-website").focus();
+    await recoveryFrame.locator("#tab-website").press("End");
+    assert.equal(await recoveryFrame.locator("#tab-clip").evaluate((element) => element === document.activeElement), true);
+    assert.equal(await recoveryFrame.locator("#tab-clip").getAttribute("aria-selected"), "true");
+    await recoveryPage.close();
+  }
 
   const deepPage = await browser.newPage();
   await deepPage.goto(`${base}/?mode=deep`);
@@ -268,7 +421,7 @@ try {
   await disabledPage.close();
   await deepPage.close();
   await page.close();
-  process.stdout.write("workbench UI smoke passed: SDK handshake, opener result, four public calls, validation, errors/retry, context, preferences, display mode, capability fallback, deep links, and mobile layout\n");
+  process.stdout.write("workbench UI smoke passed: SDK handshake, four public tools, focused validation, retained results after service/transport/timeout/malformed failures, submitted input provenance, explicit conversation context, keyboard, 320px layout, preferences, capabilities, and deep links\n");
 } finally {
   if (browser) await browser.close();
   await new Promise((resolve) => server.close(resolve));
