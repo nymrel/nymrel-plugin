@@ -1,4 +1,5 @@
 """Synthetic-only tests; never contact a device or production issuer."""
+import asyncio
 import base64
 import json
 import os
@@ -165,6 +166,48 @@ class RemoteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.structuredContent, {"value": 1})
         with self.assertRaises(ValueError):
             await remote.proxy_read("write_file", {}, "fixture-read")
+
+    async def test_total_deadline_bounds_drip_responses_without_replaying(self):
+        closed = asyncio.Event()
+        calls = []
+
+        class DripStream(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                while True:
+                    yield b" "
+                    await asyncio.sleep(0.005)
+
+            async def aclose(self):
+                closed.set()
+
+        def handler(request):
+            calls.append(request)
+            return httpx.Response(200, stream=DripStream())
+
+        real_client = httpx.AsyncClient
+        with patch.object(remote, "REQUEST_TIMEOUT_SECONDS", 0.03), \
+                patch.object(remote.httpx, "AsyncClient", side_effect=lambda **kwargs: real_client(transport=httpx.MockTransport(handler), **kwargs)):
+            result = await asyncio.wait_for(remote.proxy_read("list_devices", {}, "synthetic-bearer"), timeout=1)
+
+        self.assertTrue(result.isError)
+        self.assertNotIn("synthetic-bearer", result.model_dump_json())
+        self.assertEqual(len(calls), 1, "A timed-out read must not be resubmitted.")
+        self.assertTrue(closed.is_set(), "A timed-out response must release its transport.")
+
+    async def test_total_deadline_includes_waiting_for_response_headers(self):
+        calls = []
+
+        async def handler(request):
+            calls.append(request)
+            await asyncio.Event().wait()
+
+        real_client = httpx.AsyncClient
+        with patch.object(remote, "REQUEST_TIMEOUT_SECONDS", 0.03), \
+                patch.object(remote.httpx, "AsyncClient", side_effect=lambda **kwargs: real_client(transport=httpx.MockTransport(handler), **kwargs)):
+            result = await asyncio.wait_for(remote.proxy_read("list_devices", {}, "synthetic-bearer"), timeout=1)
+
+        self.assertTrue(result.isError)
+        self.assertEqual(len(calls), 1, "Waiting for headers must not trigger a replay.")
 
     async def test_upstream_auth_redirect_and_token_echo_are_not_exposed(self):
         real_client = httpx.AsyncClient
