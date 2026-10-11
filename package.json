@@ -26,7 +26,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@types/node": "24.13.3",
+    "@types/node": "26.6.4",
     "playwright": "1.63.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2"
