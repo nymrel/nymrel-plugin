@@ -60,6 +60,7 @@ const state = {
   deepLink: null,
   results: Object.create(null),
   attempts: Object.create(null),
+  shares: Object.create(null),
   requestIds: Object.create(null),
   preferences: loadPreferences(),
   hostContext: null,
@@ -91,8 +92,9 @@ function loadPreferences() {
 function savePreferences() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.preferences));
+    el("preference-status").textContent = "";
   } catch {
-    setStatus(state.active, "Browser storage is unavailable; this preference will last until you close this view.", "error");
+    el("preference-status").textContent = "Browser storage is unavailable; these preferences will last until you close this view.";
   }
 }
 
@@ -246,6 +248,7 @@ function renderWebsite(parent, data) {
 function renderDomains(parent, data) {
   const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
   parent.append(node("p", "help", `${suggestions.length} suggestion${suggestions.length === 1 ? "" : "s"}. Availability is confirmed only where the result says it was checked.`));
+  if (!suggestions.length) parent.append(node("p", "notice", "No domain ideas were returned. Try a more specific word or a different set of domain endings."));
   const list = node("ul");
   for (const item of suggestions) {
     const availability = item?.availability_checked === true
@@ -259,7 +262,8 @@ function renderDomains(parent, data) {
   parent.append(list);
 }
 
-function renderGolf(parent, data) {
+function renderGolf(parent, data, args) {
+  if (args.clubs.length < 2) parent.append(node("p", "notice", "One club was submitted. Add another measured carry distance to compare spacing between clubs."));
   const grid = node("div", "result-grid");
   addMetric(grid, "Average gap", Number.isFinite(data.average_gap_yards) ? `${data.average_gap_yards} yd` : "Unknown");
   addMetric(grid, "Problem gaps", Array.isArray(data.problem_gaps) ? data.problem_gaps.length : 0);
@@ -334,7 +338,7 @@ function renderStoredResult(tool) {
   resultBox.append(inputs);
   if (tool === "website") renderWebsite(resultBox, entry.data);
   if (tool === "domains") renderDomains(resultBox, entry.data);
-  if (tool === "golf") renderGolf(resultBox, entry.data);
+  if (tool === "golf") renderGolf(resultBox, entry.data, entry.args);
   if (tool === "clip") renderClip(resultBox, entry.data);
   const evidence = node("pre");
   evidence.dataset.testid = "evidence";
@@ -342,6 +346,19 @@ function renderStoredResult(tool) {
   evidence.hidden = !state.preferences.showEvidence;
   resultBox.append(evidence);
   updateResultProvenance(tool);
+  updateShareStatus(tool);
+}
+
+function updateShareStatus(tool) {
+  if (resultBox.hidden || resultBox.dataset.tool !== tool) return;
+  const share = state.shares[tool];
+  const status = resultBox.querySelector('[data-testid="share-status"]');
+  const previous = share?.entry !== state.results[tool];
+  status.textContent = share ? `${previous ? "Previous result: " : ""}${share.message}` : "";
+  status.dataset.kind = share?.kind || "";
+  const capability = state.hostCapabilities?.updateModelContext;
+  const supported = Boolean(capability && Object.prototype.hasOwnProperty.call(capability, "text"));
+  resultBox.querySelector(".result-title button").disabled = !supported || Boolean(share?.pending);
 }
 
 function inputsChanged(tool, entry) {
@@ -377,20 +394,24 @@ function updateResultProvenance(tool) {
 async function useResultInConversation(tool, entry) {
   const updateCapability = state.hostCapabilities?.updateModelContext;
   if (!entry?.data || !updateCapability || !Object.prototype.hasOwnProperty.call(updateCapability, "text")) return;
+  if (state.shares[tool]?.pending) return;
   const button = resultBox.querySelector(".result-title button");
-  const shareStatus = resultBox.querySelector('[data-testid="share-status"]');
   const restoreFocus = button === document.activeElement;
-  if (button) button.disabled = true;
-  shareStatus.textContent = "Adding the result summary to the conversation…";
+  const share = {entry, pending:true, message:"Adding the result summary to the conversation…", kind:""};
+  state.shares[tool] = share;
+  updateShareStatus(tool);
   try {
     const context = `${isPreviousResult(tool, entry) ? "Previous successful result. " : ""}${conversationSummary(tool, entry.data)}\nInputs used for this result:\n${submittedInputs(tool, entry.args)}`;
     await app.updateModelContext({ content: [{ type: "text", text: context }] }, { timeout: 8000 });
-    shareStatus.textContent = "The result summary is now in the conversation.";
+    share.message = "The result summary is now in the conversation.";
+    share.kind = "success";
   } catch {
-    shareStatus.textContent = "This host could not add the result summary. The result is still shown here.";
+    share.message = "This host could not add the result summary. The result is still shown here; you can try again.";
+    share.kind = "error";
   } finally {
+    share.pending = false;
+    updateShareStatus(tool);
     if (button?.isConnected) {
-      button.disabled = false;
       if (restoreFocus && document.activeElement === document.body) button.focus();
     }
   }
@@ -411,7 +432,16 @@ function addClubRow(values = {}) {
   const loft = document.createElement("input");
   loft.type = "number"; loft.className = "club-loft loft-field"; loft.min = "0"; loft.max = "80"; loft.step = "0.5"; loft.placeholder = "Loft (°)"; loft.setAttribute("aria-label", `Club ${index} optional loft in degrees`); loft.value = values.loft_degrees ?? "";
   const remove = node("button", "quiet remove-club remove", "×");
-  remove.type = "button"; remove.setAttribute("aria-label", `Remove club ${index}`); remove.addEventListener("click", () => { if (clubCount() > 1) { row.remove(); refreshClubRows(); updateResultProvenance("golf"); } });
+  remove.type = "button"; remove.setAttribute("aria-label", `Remove club ${index}`);
+  remove.addEventListener("click", () => {
+    if (clubCount() <= 1) return;
+    const restoreFocus = row.contains(document.activeElement);
+    const nextRow = row.nextElementSibling || row.previousElementSibling;
+    row.remove();
+    refreshClubRows();
+    updateResultProvenance("golf");
+    if (restoreFocus) nextRow?.querySelector(".club-name").focus();
+  });
   row.append(name, carry, loft, remove);
   el("club-list").append(row);
   refreshClubRows();

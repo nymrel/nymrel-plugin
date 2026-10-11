@@ -28,7 +28,7 @@ const hostPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="v
   const mode = new URL(location.href).searchParams.get('mode') || 'normal';
   const frame = document.getElementById('workbench-frame');
   const state = window.__testHost = {
-    calls: [], updates: [], displayRequests: 0, connected: false,
+    calls: [], updates: [], displayRequests: 0, connected: false, contextQueue: [], initializeAttempts:0, dropTools:mode === 'tool-timeout', dropContext:false,
     delays: Object.create(null), queues: Object.create(null),
     opener: {version:'1.0', default_tool:'website', tools:[
       {id:'website',name:'nymrel_audit_website',title:'Website audit',description:'Measure one public page.'},
@@ -36,9 +36,9 @@ const hostPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="v
       {id:'golf',name:'nymrel_golf_bag_gap',title:'Golf bag gaps',description:'Compare carries.'},
       {id:'clip',name:'nymrel_social_clip_score',title:'Social clip signals',description:'Measure hook signals.'}
     ]},
-    capabilities: mode === 'disabled' ? {} : {serverTools:{},updateModelContext:{text:{}}},
+    capabilities: mode === 'disabled' ? {} : mode === 'no-context' ? {serverTools:{}} : {serverTools:{},updateModelContext:{text:{}}},
     context: {
-      theme: 'light', displayMode:'inline', availableDisplayModes:['inline','fullscreen'],
+      theme: 'light', displayMode:'inline', availableDisplayModes:mode === 'inline' ? ['inline'] : ['inline','fullscreen'],
       'openai/deepLink': mode === 'deep' ? {url:'/golf'} : undefined,
       styles:{variables:{'--color-background-primary':'#fffefa','--color-text-primary':'#26362f'}}
     },
@@ -50,6 +50,7 @@ const hostPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="v
       const queue = this.queues[name] || (this.queues[name] = []);
       queue.push({error});
     },
+    respondContext(error=null, delay=0) { this.contextQueue.push({error,delay}); },
     notify(method, params) { frame.contentWindow.postMessage({jsonrpc:'2.0',method,params}, '*'); },
     changeContext(patch) {
       this.context = {...this.context,...patch};
@@ -69,18 +70,27 @@ const hostPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="v
     if (!message.method) return;
     const respond = (result) => frame.contentWindow.postMessage({jsonrpc:'2.0',id:message.id,result}, '*');
     if (message.method === 'ui/initialize') {
-      if (mode === 'timeout') return;
+      state.initializeAttempts += 1;
+      if (mode === 'timeout' || (mode === 'reconnect' && state.initializeAttempts === 1)) return;
       state.connected = true;
       respond({protocolVersion:'2025-11-25',hostInfo:{name:'synthetic-host',version:'1'},hostCapabilities:state.capabilities,hostContext:state.context});
     } else if (message.method === 'ui/notifications/initialized') {
       setTimeout(() => state.notify('ui/notifications/tool-result', {structuredContent:state.opener,content:[{type:'text',text:'Tools ready.'}]}), 0);
     } else if (message.method === 'ui/request-display-mode') {
       state.displayRequests += 1;
+      if (mode === 'fullscreen-denied') {
+        frame.contentWindow.postMessage({jsonrpc:'2.0',id:message.id,error:{code:-32603,message:'Synthetic fullscreen rejection'}}, '*');
+        return;
+      }
       state.context.displayMode = message.params.mode;
       respond({mode:message.params.mode});
     } else if (message.method === 'ui/update-model-context') {
       state.updates.push(message.params);
-      respond({});
+      if (state.dropContext) return;
+      const fixture = state.contextQueue.shift() || {};
+      setTimeout(() => fixture.error
+        ? frame.contentWindow.postMessage({jsonrpc:'2.0',id:message.id,error:fixture.error}, '*')
+        : respond({}), fixture.delay || 0);
     } else if (message.method === 'tools/call') {
       const name = message.params?.name;
       const queue = state.queues[name] || [];
@@ -88,6 +98,7 @@ const hostPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="v
       const data = name === 'nymrel_social_clip_score' ? {...defaults[name], target_platform:message.params.arguments.target_platform} : defaults[name];
       const fixture = next || {result:{structuredContent:data || {},content:[{type:'text',text:'ok'}]}};
       state.calls.push({name,arguments:message.params?.arguments || {}});
+      if (state.dropTools) return;
       setTimeout(() => fixture.error
         ? frame.contentWindow.postMessage({jsonrpc:'2.0',id:message.id,error:fixture.error}, '*')
         : respond(fixture.result), fixture.delay || 0);
@@ -139,6 +150,7 @@ try {
   await frame.locator("#website-url").fill("https://guest:secret@example.test");
   await frame.locator("#form-website button[type=submit]").click();
   await frame.getByText("Use a public URL without embedded credentials.", { exact: true }).waitFor();
+  assert.equal(await frame.locator("#website-url").evaluate((element) => element === document.activeElement), true);
   assert.equal(await getHost(page, "window.__testHost.calls.length"), beforeWebsite, "credential-bearing URLs are rejected locally");
   await page.evaluate(() => window.__testHost.respond("nymrel_audit_website", {structuredContent:{score:84,grade:"B",ai_discoverability_status:"Readable",recommendations:["<img src=x onerror=window.__injected=1> measured recommendation"],schema_detected:["Product"],full_report_url:"https://example.test/report"},content:[{type:"text",text:"Website audit result"}]}, 900));
   await frame.locator("#website-url").fill("https://example.test");
@@ -161,6 +173,7 @@ try {
   const beforeBadTld = await getHost(page, "window.__testHost.calls.length");
   await frame.locator("#form-domains button[type=submit]").click();
   await frame.getByText("Enter domain endings like .com or .io, separated by commas.").waitFor();
+  assert.equal(await frame.locator("#domain-tlds").evaluate((element) => element === document.activeElement), true);
   assert.equal(await getHost(page, "window.__testHost.calls.length"), beforeBadTld, "invalid TLD is rejected locally");
   await frame.locator("#domain-tlds").fill(".com, .IO");
   await frame.locator("#form-domains button[type=submit]").click();
@@ -304,6 +317,29 @@ try {
     assert.ok(!summary.includes(tool.edited), "edited fields cannot be passed off as the old report's inputs");
     await input.fill(tool.initial);
 
+    await recoveryPage.evaluate(() => window.__testHost.respondContext(null, 1200));
+    const shareRequestsBefore = await getHost(recoveryPage, "window.__testHost.updates.length");
+    await recoveryFrame.getByRole("button", {name:"Use result in conversation"}).click();
+    await recoveryFrame.locator('[data-testid="share-status"]').getByText("Adding the result summary", {exact:false}).waitFor();
+    await recoveryFrame.locator("#show-evidence").uncheck();
+    await recoveryFrame.locator("#show-evidence").check();
+    assert.equal(await recoveryFrame.getByRole("button", {name:"Use result in conversation"}).isDisabled(), true, `${tool.id}: display changes must not re-enable an in-flight handoff`);
+    await recoveryFrame.getByRole("button", {name:"Use result in conversation"}).evaluate((element) => element.dispatchEvent(new MouseEvent("click", {bubbles:true})));
+    await chooseTool(recoveryFrame, tool.id === "website" ? "domains" : "website");
+    await chooseTool(recoveryFrame, tool.id);
+    assert.equal(await recoveryFrame.getByRole("button", {name:"Use result in conversation"}).isDisabled(), true, `${tool.id}: returning preserves a pending handoff`);
+    await recoveryFrame.locator('[data-testid="share-status"]').getByText("The result summary is now in the conversation.").waitFor();
+    assert.equal(await getHost(recoveryPage, "window.__testHost.updates.length"), shareRequestsBefore + 1, "one explicit handoff sends one context update");
+
+    await recoveryPage.evaluate(() => window.__testHost.respondContext({code:-32603,message:"Synthetic conversation failure"}, 50));
+    await recoveryFrame.getByRole("button", {name:"Use result in conversation"}).click();
+    await recoveryFrame.locator('[data-testid="share-status"]').getByText("This host could not add the result summary.", {exact:false}).waitFor();
+    assert.equal(await recoveryFrame.getByRole("button", {name:"Use result in conversation"}).isDisabled(), false, "failed conversation handoff can be retried");
+    assert.equal(await evidence.textContent(), goodData, "failed handoff preserves result evidence");
+    await chooseTool(recoveryFrame, tool.id === "website" ? "domains" : "website");
+    await chooseTool(recoveryFrame, tool.id);
+    await recoveryFrame.locator('[data-testid="share-status"]').getByText("This host could not add the result summary.", {exact:false}).waitFor();
+
     const serviceError = {status:"error",error:{code:"UPSTREAM_UNAVAILABLE",message:"This tool is temporarily unavailable.",retryable:true}};
     const invalidData = JSON.parse(goodData);
     if (tool.id === "website") invalidData.score = "84";
@@ -362,6 +398,11 @@ try {
     await recoveryFrame.getByRole("button", {name:"Use previous result in conversation"}).click();
     assert.equal(await submit.isDisabled(), true, "sharing does not enable an in-flight submit");
     await input.fill(tool.edited);
+    const otherTool = tool.id === "website" ? "domains" : "website";
+    await chooseTool(recoveryFrame, otherTool);
+    await recoveryPage.waitForFunction((id) => !document.querySelector("#workbench-frame").contentDocument.querySelector(`#form-${id} button[type=submit]`).disabled, tool.id);
+    assert.equal(await recoveryFrame.locator(`#tab-${otherTool}`).getAttribute("aria-selected"), "true", `${tool.id}: a late response must not navigate away from the user's chosen tool`);
+    await chooseTool(recoveryFrame, tool.id);
     await status.getByText("Result ready for the submitted inputs.", {exact:false}).waitFor();
     assert.match(await title.textContent(), /previous successful result/, "input changes during a request remain explicit after success");
     await recoveryFrame.getByText("Inputs used for this result", {exact:true}).click();
@@ -401,6 +442,122 @@ try {
   assert.equal(await disabledFrame.locator("#form-website button[type=submit]").isDisabled(), true, "missing serverTools disables tool calls");
   assert.equal(await disabledFrame.locator("#result button").count(), 0);
 
+  for (const mode of ["inline", "fullscreen-denied", "no-context"]) {
+    const capabilityPage = await browser.newPage({viewport:{width:320,height:780}});
+    await capabilityPage.goto(`${base}/?mode=${mode}`);
+    const capabilityFrame = capabilityPage.frameLocator("#workbench-frame");
+    await capabilityFrame.locator("#workbench").waitFor({state:"visible"});
+    await capabilityFrame.locator("#website-url").fill("https://example.test");
+    await capabilityFrame.locator("#form-website button[type=submit]").click();
+    await capabilityFrame.locator("#status-website").getByText("Result ready.", {exact:false}).waitFor();
+    assert.equal(await getHost(capabilityPage, "window.__testHost.displayRequests"), mode === "inline" ? 0 : 1);
+    assert.equal(await capabilityFrame.getByRole("button", {name:"Use result in conversation"}).isDisabled(), mode === "no-context");
+    await capabilityPage.close();
+  }
+
+  const storagePage = await browser.newPage();
+  await storagePage.addInitScript(() => { Storage.prototype.setItem = () => { throw new DOMException("Synthetic unavailable storage", "SecurityError"); }; });
+  await storagePage.goto(base);
+  const storageFrame = storagePage.frameLocator("#workbench-frame");
+  await storageFrame.locator("#workbench").waitFor({state:"visible"});
+  await storageFrame.locator("#form-website button[type=submit]").click();
+  const invalidStatus = await storageFrame.locator("#status-website").textContent();
+  await storageFrame.locator("#settings summary").click();
+  await storageFrame.locator("#show-evidence").check();
+  assert.equal(await storageFrame.locator("#status-website").textContent(), invalidStatus, "a storage failure must not overwrite request/validation feedback");
+  await storageFrame.locator("#preference-status").getByText("Browser storage is unavailable", {exact:false}).waitFor();
+  await storageFrame.locator("#website-url").fill("https://example.test");
+  await storageFrame.locator("#form-website button[type=submit]").click();
+  await storageFrame.locator("#status-website").getByText("Result ready.", {exact:false}).waitFor();
+  assert.equal(await storageFrame.locator('pre[data-testid="evidence"]').isVisible(), true, "preferences still work in memory without storage");
+  await storagePage.close();
+
+  const emptyPage = await browser.newPage();
+  await emptyPage.goto(base);
+  const emptyFrame = emptyPage.frameLocator("#workbench-frame");
+  await emptyFrame.locator("#workbench").waitFor({state:"visible"});
+  await chooseTool(emptyFrame, "domains");
+  await emptyFrame.locator("#domain-idea").fill("empty fixture");
+  await emptyPage.evaluate(() => window.__testHost.respond("nymrel_find_domain", {structuredContent:{suggestions:[]},content:[]}));
+  await emptyFrame.locator("#form-domains button[type=submit]").click();
+  await emptyFrame.getByText("No domain ideas were returned.", {exact:false}).waitFor();
+  assert.equal(await emptyFrame.locator("#status-domains").getAttribute("data-kind"), "success", "an empty native result remains a successful measurement");
+  await chooseTool(emptyFrame, "golf");
+  await emptyFrame.locator(".club-name").fill("7 iron");
+  await emptyFrame.locator(".club-carry").fill("165");
+  await emptyPage.evaluate(() => window.__testHost.respond("nymrel_golf_bag_gap", {structuredContent:{average_gap_yards:0,problem_gaps:[],recommendations:[]},content:[]}));
+  await emptyFrame.locator("#form-golf button[type=submit]").click();
+  await emptyFrame.getByText("One club was submitted.", {exact:false}).waitFor();
+  await emptyFrame.getByText("No problem gaps were reported.").waitFor();
+  await emptyPage.close();
+
+  const rowPage = await browser.newPage({viewport:{width:320,height:780}});
+  await rowPage.goto(base);
+  const rowFrame = rowPage.frameLocator("#workbench-frame");
+  await rowFrame.locator("#workbench").waitFor({state:"visible"});
+  await chooseTool(rowFrame, "golf");
+  for (let index=0; index<13; index++) await rowFrame.locator("#add-club").click();
+  assert.equal(await rowFrame.locator("#add-club").isDisabled(), true, "golf limits the bag to fourteen clubs");
+  let rows = rowFrame.locator(".club-row");
+  for (let index=0; index<14; index++) {
+    await rows.nth(index).locator(".club-name").fill(`Club ${index + 1}`);
+    await rows.nth(index).locator(".club-carry").fill(String(110 + index * 10));
+  }
+  await rows.nth(0).locator(".club-carry").fill("401");
+  await rowFrame.locator("#form-golf button[type=submit]").click();
+  assert.equal(await rows.nth(0).locator(".club-carry").evaluate((element) => element === document.activeElement), true);
+  assert.equal(await getHost(rowPage, "window.__testHost.calls.length"), 0);
+  await rows.nth(0).locator(".club-carry").fill("110");
+  await rows.nth(0).locator(".club-loft").fill("81");
+  await rowFrame.locator("#form-golf button[type=submit]").click();
+  assert.equal(await rows.nth(0).locator(".club-loft").evaluate((element) => element === document.activeElement), true);
+  await rows.nth(0).locator(".club-loft").fill("30.5");
+  await rowFrame.locator("#form-golf button[type=submit]").click();
+  await rowFrame.locator("#status-golf").getByText("Result ready.", {exact:false}).waitFor();
+  assert.equal((await getHost(rowPage, "window.__testHost.calls.at(-1).arguments.clubs")).length, 14);
+  await rows.nth(0).locator(".remove-club").focus();
+  await rows.nth(0).locator(".remove-club").press("Enter");
+  rows = rowFrame.locator(".club-row");
+  assert.equal(await rows.nth(0).locator(".club-name").evaluate((element) => element === document.activeElement), true, "removing a club keeps keyboard focus at the next editable row");
+  assert.equal(await rows.nth(0).locator(".club-name").getAttribute("aria-label"), "Club 1 name", "removing a row updates accessible field positions");
+  assert.equal(await rowFrame.locator("#add-club").isDisabled(), false);
+  assert.ok(await rowFrame.locator("body").evaluate((body) => body.scrollWidth <= body.clientWidth + 1));
+  await rowPage.close();
+
+  const preferencePage = await browser.newPage();
+  await preferencePage.goto(base);
+  let preferenceFrame = preferencePage.frameLocator("#workbench-frame");
+  await preferenceFrame.locator("#workbench").waitFor({state:"visible"});
+  await preferenceFrame.locator("#settings summary").click();
+  await preferenceFrame.locator("#default-tool").selectOption("clip");
+  await preferenceFrame.locator("#default-platform").selectOption("instagram_reels");
+  await preferencePage.reload();
+  preferenceFrame = preferencePage.frameLocator("#workbench-frame");
+  await preferenceFrame.locator("#workbench").waitFor({state:"visible"});
+  assert.equal(await preferenceFrame.locator("#tab-clip").getAttribute("aria-selected"), "true");
+  assert.equal(await preferenceFrame.locator("#clip-platform").inputValue(), "instagram_reels");
+  assert.equal(await preferenceFrame.locator("#clip-transcript").inputValue(), "", "returning to the app restores display preferences without saved form data");
+  assert.equal(await getHost(preferencePage, "window.__testHost.calls.length"), 0);
+  await preferencePage.close();
+
+  const deadlinePage = await browser.newPage();
+  await deadlinePage.goto(`${base}/?mode=tool-timeout`);
+  const deadlineFrame = deadlinePage.frameLocator("#workbench-frame");
+  await deadlineFrame.locator("#workbench").waitFor({state:"visible"});
+  await deadlineFrame.locator("#website-url").fill("https://example.test");
+  await deadlineFrame.locator("#form-website button[type=submit]").click();
+  await deadlineFrame.locator("#status-website").getByText("Nymrel did not respond in time.", {exact:false}).waitFor({timeout:35000});
+  assert.equal(await deadlineFrame.locator("#form-website button[type=submit]").isDisabled(), false);
+  assert.equal(await deadlineFrame.locator("#result").isVisible(), false);
+  await deadlinePage.evaluate(() => { window.__testHost.dropTools=false; });
+  await deadlineFrame.locator("#form-website button[type=submit]").click();
+  await deadlineFrame.locator("#status-website").getByText("Result ready.", {exact:false}).waitFor();
+  await deadlinePage.evaluate(() => { window.__testHost.dropContext=true; });
+  await deadlineFrame.getByRole("button", {name:"Use result in conversation"}).click();
+  await deadlineFrame.locator('[data-testid="share-status"]').getByText("This host could not add the result summary.", {exact:false}).waitFor({timeout:10000});
+  assert.equal(await deadlineFrame.getByRole("button", {name:"Use result in conversation"}).isDisabled(), false, "the actual SDK handoff deadline leaves retry available");
+  await deadlinePage.close();
+
   for (const [legacyPlatform, currentPlatform] of [["reels", "instagram_reels"], ["shorts", "youtube_shorts"]]) {
     const migrationPage = await browser.newPage();
     await migrationPage.addInitScript((platform) => {
@@ -418,6 +575,15 @@ try {
   const timeoutFrame = timeoutPage.frameLocator("#workbench-frame");
   await timeoutFrame.getByText("The Nymrel workbench could not connect to its host.").waitFor({ timeout: 9000 });
   await timeoutPage.close();
+  const reconnectPage = await browser.newPage();
+  await reconnectPage.goto(`${base}/?mode=reconnect`);
+  const reconnectFrame = reconnectPage.frameLocator("#workbench-frame");
+  await reconnectFrame.getByRole("button", {name:"Reconnect",exact:true}).waitFor({timeout:9000});
+  await reconnectFrame.getByRole("button", {name:"Reconnect",exact:true}).click();
+  await reconnectFrame.locator("#workbench").waitFor({state:"visible"});
+  assert.equal(await getHost(reconnectPage, "window.__testHost.initializeAttempts"), 2);
+  assert.equal(await getHost(reconnectPage, "window.__testHost.calls.length"), 0, "reconnect does not execute a tool");
+  await reconnectPage.close();
   await disabledPage.close();
   await deepPage.close();
   await page.close();
