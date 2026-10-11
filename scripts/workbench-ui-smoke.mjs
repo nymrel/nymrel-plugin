@@ -29,7 +29,7 @@ const hostPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="v
   const frame = document.getElementById('workbench-frame');
   const state = window.__testHost = {
     calls: [], updates: [], displayRequests: 0, connected: false, contextQueue: [], initializeAttempts:0, dropTools:mode === 'tool-timeout', dropContext:false,
-    delays: Object.create(null), queues: Object.create(null),
+    queues: Object.create(null), pendingTools: Object.create(null), pendingContexts: [],
     opener: {version:'1.0', default_tool:'website', tools:[
       {id:'website',name:'nymrel_audit_website',title:'Website audit',description:'Measure one public page.'},
       {id:'domains',name:'nymrel_find_domain',title:'Domain ideas',description:'Explore available names.'},
@@ -46,11 +46,26 @@ const hostPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="v
       const queue = this.queues[name] || (this.queues[name] = []);
       queue.push({result,delay});
     },
+    hold(name, result) {
+      const queue = this.queues[name] || (this.queues[name] = []);
+      queue.push({result,held:true});
+    },
+    releaseTool(name) {
+      const send = this.pendingTools[name]?.shift();
+      if (!send) throw new Error('No held tool response for ' + name);
+      send();
+    },
     reject(name, error) {
       const queue = this.queues[name] || (this.queues[name] = []);
       queue.push({error});
     },
     respondContext(error=null, delay=0) { this.contextQueue.push({error,delay}); },
+    holdContext() { this.contextQueue.push({held:true}); },
+    releaseContext() {
+      const send = this.pendingContexts.shift();
+      if (!send) throw new Error('No held conversation response');
+      send();
+    },
     notify(method, params) { frame.contentWindow.postMessage({jsonrpc:'2.0',method,params}, '*'); },
     changeContext(patch) {
       this.context = {...this.context,...patch};
@@ -88,9 +103,11 @@ const hostPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="v
       state.updates.push(message.params);
       if (state.dropContext) return;
       const fixture = state.contextQueue.shift() || {};
-      setTimeout(() => fixture.error
+      const send = () => fixture.error
         ? frame.contentWindow.postMessage({jsonrpc:'2.0',id:message.id,error:fixture.error}, '*')
-        : respond({}), fixture.delay || 0);
+        : respond({});
+      if (fixture.held) state.pendingContexts.push(send);
+      else setTimeout(send, fixture.delay || 0);
     } else if (message.method === 'tools/call') {
       const name = message.params?.name;
       const queue = state.queues[name] || [];
@@ -99,9 +116,11 @@ const hostPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="v
       const fixture = next || {result:{structuredContent:data || {},content:[{type:'text',text:'ok'}]}};
       state.calls.push({name,arguments:message.params?.arguments || {}});
       if (state.dropTools) return;
-      setTimeout(() => fixture.error
+      const send = () => fixture.error
         ? frame.contentWindow.postMessage({jsonrpc:'2.0',id:message.id,error:fixture.error}, '*')
-        : respond(fixture.result), fixture.delay || 0);
+        : respond(fixture.result);
+      if (fixture.held) (state.pendingTools[name] || (state.pendingTools[name] = [])).push(send);
+      else setTimeout(send, fixture.delay || 0);
     } else if (message.method === 'ui/notifications/size-changed' || message.method === 'notifications/message') {
       // Notifications require no response.
     }
@@ -130,6 +149,14 @@ let browser;
 function toolTab(frame, id) { return frame.locator(`#tab-${id}`); }
 async function chooseTool(frame, id) { await toolTab(frame, id).click(); }
 async function getHost(page, expression) { return page.evaluate(expression); }
+async function releaseTool(page, name) {
+  await page.waitForFunction((tool) => window.__testHost.pendingTools[tool]?.length > 0, name);
+  await page.evaluate((tool) => window.__testHost.releaseTool(tool), name);
+}
+async function releaseContext(page) {
+  await page.waitForFunction(() => window.__testHost.pendingContexts.length > 0);
+  await page.evaluate(() => window.__testHost.releaseContext());
+}
 
 try {
   browser = await chromium.launch({ headless: true });
@@ -152,10 +179,13 @@ try {
   await frame.getByText("Use a public URL without embedded credentials.", { exact: true }).waitFor();
   assert.equal(await frame.locator("#website-url").evaluate((element) => element === document.activeElement), true);
   assert.equal(await getHost(page, "window.__testHost.calls.length"), beforeWebsite, "credential-bearing URLs are rejected locally");
-  await page.evaluate(() => window.__testHost.respond("nymrel_audit_website", {structuredContent:{score:84,grade:"B",ai_discoverability_status:"Readable",recommendations:["<img src=x onerror=window.__injected=1> measured recommendation"],schema_detected:["Product"],full_report_url:"https://example.test/report"},content:[{type:"text",text:"Website audit result"}]}, 900));
+  await page.evaluate(() => window.__testHost.hold("nymrel_audit_website", {structuredContent:{score:84,grade:"B",ai_discoverability_status:"Readable",recommendations:["<img src=x onerror=window.__injected=1> measured recommendation"],schema_detected:["Product"],full_report_url:"https://example.test/report"},content:[{type:"text",text:"Website audit result"}]}));
   await frame.locator("#website-url").fill("https://example.test");
   await frame.locator("#form-website button[type=submit]").click();
   await frame.getByText("Checking the public page…").waitFor();
+  assert.equal(await frame.locator("#form-website button[type=submit]").isDisabled(), true);
+  assert.equal(await frame.locator("#form-website").getAttribute("aria-busy"), "true");
+  await releaseTool(page, "nymrel_audit_website");
   await frame.getByText("84 / 100").waitFor();
   assert.equal(await getHost(page, "window.__testHost.calls.at(-1).name"), "nymrel_audit_website");
   assert.deepEqual(await getHost(page, "window.__testHost.calls.at(-1).arguments"), {url:"https://example.test"});
@@ -208,13 +238,14 @@ try {
   assert.ok(clipPlatformValues.every((platform) => acceptedClipPlatforms.has(platform)), "every displayed platform is accepted by the current public API contract");
   await frame.locator("#clip-transcript").fill("Stop doing this in Python right now.");
   await frame.locator("#clip-platform").selectOption("youtube_shorts");
-  await page.evaluate(() => window.__testHost.respond("nymrel_social_clip_score", {structuredContent:{target_platform:"youtube_shorts",hook_score:77,hook_strength:"Strong",signals:{opening_word_count:7,opens_with_hook_pattern:true,addresses_viewer:true,has_curiosity_signal:false,opening_contains_number:false,total_word_count:21,platform_word_range:[20,40],total_word_count_in_platform_range:true},suggested_edits:["Try a shorter opening."]},content:[{type:"text",text:"clip result"}]}, 700));
+  await page.evaluate(() => window.__testHost.hold("nymrel_social_clip_score", {structuredContent:{target_platform:"youtube_shorts",hook_score:77,hook_strength:"Strong",signals:{opening_word_count:7,opens_with_hook_pattern:true,addresses_viewer:true,has_curiosity_signal:false,opening_contains_number:false,total_word_count:21,platform_word_range:[20,40],total_word_count_in_platform_range:true},suggested_edits:["Try a shorter opening."]},content:[{type:"text",text:"clip result"}]}));
   await frame.locator("#form-clip button[type=submit]").click();
   await frame.getByText("Measuring the opening…").waitFor();
   assert.equal(await frame.locator("#form-clip button[type=submit]").isDisabled(), true, "an in-flight tool call cannot be duplicated");
   await chooseTool(frame, "golf");
   await frame.getByText("Average gap").waitFor();
-  await page.waitForTimeout(800);
+  await releaseTool(page, "nymrel_social_clip_score");
+  await page.waitForFunction(() => !document.querySelector("#workbench-frame").contentDocument.querySelector("#form-clip button[type=submit]").disabled);
   assert.equal(await frame.locator("#tab-golf").getAttribute("aria-selected"), "true", "a late response does not steal the active tool view");
   await chooseTool(frame, "clip");
   await frame.getByText("77 / 100").waitFor();
@@ -222,11 +253,17 @@ try {
   const clipSuccess = {structuredContent:{target_platform:"tiktok",hook_score:77,hook_strength:"Strong",signals:{opening_word_count:7,opens_with_hook_pattern:true,addresses_viewer:true,has_curiosity_signal:false,opening_contains_number:false,total_word_count:21,platform_word_range:[20,40],total_word_count_in_platform_range:true},suggested_edits:["Try a shorter opening."]},content:[{type:"text",text:"clip result"}]};
   for (const platform of clipPlatformValues) {
     await frame.locator("#clip-platform").selectOption(platform);
-    await page.evaluate((result) => window.__testHost.respond("nymrel_social_clip_score", result, 40), {...clipSuccess, structuredContent:{...clipSuccess.structuredContent,target_platform:platform}});
+    const callsBefore = await getHost(page, "window.__testHost.calls.length");
+    await page.evaluate((result) => window.__testHost.hold("nymrel_social_clip_score", result), {...clipSuccess, structuredContent:{...clipSuccess.structuredContent,target_platform:platform}});
     await frame.locator("#form-clip button[type=submit]").click();
     await frame.getByText("Measuring the opening…").waitFor();
+    assert.equal(await frame.locator("#form-clip button[type=submit]").isDisabled(), true);
+    assert.equal(await frame.locator("#form-clip").getAttribute("aria-busy"), "true");
+    await frame.locator("#form-clip").evaluate((element) => element.dispatchEvent(new Event("submit", {bubbles:true,cancelable:true})));
+    await releaseTool(page, "nymrel_social_clip_score");
     await frame.locator("#status-clip").getByText("Result ready.", { exact: false }).waitFor();
     await frame.getByText("77 / 100").waitFor();
+    assert.equal(await getHost(page, "window.__testHost.calls.length"), callsBefore + 1, "a pending clip call rejects duplicate submission");
     assert.deepEqual(await getHost(page, "window.__testHost.calls.at(-1).arguments"), {
       transcript_text:"Stop doing this in Python right now.", target_platform:platform,
     }, `${platform} must be sent exactly as accepted by the public API`);
@@ -317,7 +354,8 @@ try {
     assert.ok(!summary.includes(tool.edited), "edited fields cannot be passed off as the old report's inputs");
     await input.fill(tool.initial);
 
-    await recoveryPage.evaluate(() => window.__testHost.respondContext(null, 1200));
+    await recoveryFrame.locator('[data-testid="share-status"]').getByText("The result summary is now in the conversation.").waitFor();
+    await recoveryPage.evaluate(() => window.__testHost.holdContext());
     const shareRequestsBefore = await getHost(recoveryPage, "window.__testHost.updates.length");
     await recoveryFrame.getByRole("button", {name:"Use result in conversation"}).click();
     await recoveryFrame.locator('[data-testid="share-status"]').getByText("Adding the result summary", {exact:false}).waitFor();
@@ -328,6 +366,7 @@ try {
     await chooseTool(recoveryFrame, tool.id === "website" ? "domains" : "website");
     await chooseTool(recoveryFrame, tool.id);
     assert.equal(await recoveryFrame.getByRole("button", {name:"Use result in conversation"}).isDisabled(), true, `${tool.id}: returning preserves a pending handoff`);
+    await releaseContext(recoveryPage);
     await recoveryFrame.locator('[data-testid="share-status"]').getByText("The result summary is now in the conversation.").waitFor();
     assert.equal(await getHost(recoveryPage, "window.__testHost.updates.length"), shareRequestsBefore + 1, "one explicit handoff sends one context update");
 
@@ -392,18 +431,23 @@ try {
     assert.equal(await status.textContent(), failureMessage);
     assert.equal(await recoveryFrame.getByRole("button", {name:"Use previous result in conversation"}).evaluate((element) => element === document.activeElement), true, "sharing preserves keyboard focus");
 
-    await recoveryPage.evaluate(({name,data}) => window.__testHost.respond(name, {content:[{type:"text",text:data}]}, 350), {name:tool.name,data:goodData});
+    const callsBeforeHeldRetry = await getHost(recoveryPage, "window.__testHost.calls.length");
+    await recoveryPage.evaluate(({name,data}) => window.__testHost.hold(name, {content:[{type:"text",text:data}]}), {name:tool.name,data:goodData});
     await submit.click();
     await recoveryFrame.getByRole("button", {name:"Use previous result in conversation"}).waitFor();
     await recoveryFrame.getByRole("button", {name:"Use previous result in conversation"}).click();
     assert.equal(await submit.isDisabled(), true, "sharing does not enable an in-flight submit");
+    assert.equal(await recoveryFrame.locator(`#form-${tool.id}`).getAttribute("aria-busy"), "true");
+    await recoveryFrame.locator(`#form-${tool.id}`).evaluate((element) => element.dispatchEvent(new Event("submit", {bubbles:true,cancelable:true})));
     await input.fill(tool.edited);
     const otherTool = tool.id === "website" ? "domains" : "website";
     await chooseTool(recoveryFrame, otherTool);
+    await releaseTool(recoveryPage, tool.name);
     await recoveryPage.waitForFunction((id) => !document.querySelector("#workbench-frame").contentDocument.querySelector(`#form-${id} button[type=submit]`).disabled, tool.id);
     assert.equal(await recoveryFrame.locator(`#tab-${otherTool}`).getAttribute("aria-selected"), "true", `${tool.id}: a late response must not navigate away from the user's chosen tool`);
     await chooseTool(recoveryFrame, tool.id);
     await status.getByText("Result ready for the submitted inputs.", {exact:false}).waitFor();
+    assert.equal(await getHost(recoveryPage, "window.__testHost.calls.length"), callsBeforeHeldRetry + 1, `${tool.id}: a pending retry rejects duplicate submission`);
     assert.match(await title.textContent(), /previous successful result/, "input changes during a request remain explicit after success");
     await recoveryFrame.getByText("Inputs used for this result", {exact:true}).click();
     const shownInputs = await recoveryFrame.locator(".result-inputs pre").textContent();
