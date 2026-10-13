@@ -50,6 +50,40 @@ def _tool_payload(response: httpx.Response) -> dict:
 
 
 class HostedEndpointTests(unittest.IsolatedAsyncioTestCase):
+    async def test_golf_schema_and_located_rejection_match_documented_limits(self):
+        async with await self._client() as client:
+            response = await client.post("/mcp", headers=MCP_HEADERS, json=_rpc("tools/list"))
+            golf = next(tool for tool in response.json()["result"]["tools"]
+                        if tool["name"] == "nymrel_golf_bag_gap")
+            clubs = golf["inputSchema"]["properties"]["clubs"]
+            self.assertEqual((clubs["minItems"], clubs["maxItems"]), (1, 14))
+            item = clubs["items"]
+            if "$ref" in item:
+                item = golf["inputSchema"]["$defs"][item["$ref"].split("/")[-1]]
+            self.assertEqual(item["properties"]["name"]["minLength"], 1)
+            self.assertEqual(item["properties"]["name"]["pattern"], r"\S")
+            self.assertFalse(item["additionalProperties"])
+            for bag in ([{"name": "7i", "carry_distance_yards": 150}] * 2,
+                        [{"name": str(i), "carry_distance_yards": 150} for i in range(15)]):
+                with self.subTest(clubs=bag), patch.object(server, "_client") as factory:
+                    factory.return_value = server.NymrelPublicApiClient(
+                        base_url="https://api.example.test/api/v1/tools",
+                        requester=Mock(side_effect=AssertionError("must not contact upstream")),
+                    )
+                    rejected = await client.post(
+                        "/mcp", headers=MCP_HEADERS,
+                        json=_rpc("tools/call", {"name": "nymrel_golf_bag_gap",
+                                                 "arguments": {"clubs": bag}}),
+                    )
+                    result = rejected.json()["result"]
+                    self.assertTrue(result["isError"])
+                    error = result["structuredContent"]["error"]
+                    self.assertEqual(error["code"], "INVALID_INPUT")
+                    self.assertFalse(error["retryable"])
+                    field = "clubs[1].name" if len(bag) == 2 else "clubs"
+                    self.assertIn(field, error["message"])
+                    factory.return_value.requester.assert_not_called()
+
     async def test_every_hosted_tool_carries_directory_annotations(self):
         """Annotations must hold on the hosted app, not just the module.
 
