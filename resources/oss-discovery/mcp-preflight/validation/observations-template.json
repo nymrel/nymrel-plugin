@@ -1,0 +1,19 @@
+{
+  "schema": "nymrel-preflight-human-observations/0.1",
+  "status": "not-run",
+  "planned_participants": 5,
+  "consenting_participants": null,
+  "baseline": {
+    "name": "MCP Inspector documentation",
+    "comparison_scope": "Supplied-file/documentation comparison; live Inspector diagnostics are not evaluated.",
+    "documentation_revision": null,
+    "version": null,
+    "observed_at": null
+  },
+  "observation_fields": ["participant_alias", "case_label", "approach", "task_order", "fixture_revision", "baseline_document_revision", "elapsed_seconds", "proposed_next_action", "confidence", "defensible_next_action", "unsupported_certainty", "assistance_count", "would_reuse", "observed_at"],
+  "paired_observations": [],
+  "diagnosis_accuracy": null,
+  "median_time_improvement_percent": null,
+  "repeat_users": null,
+  "notes": "No participants or outcomes are represented by this blank template. Store consented observations in the existing private study lane."
+}

@@ -1,0 +1,31 @@
+{
+  "schema": "nymrel-mcp-preflight/0.1",
+  "mode": "offline-static-triage",
+  "assessment": "needs-investigation",
+  "servers": [
+    {
+      "id": "server-1",
+      "launch_kind": "local-command",
+      "local_runtime_lookup": "not-requested"
+    }
+  ],
+  "findings": [
+    {
+      "code": "installer-protocol-log-signal",
+      "scope": "supplied-log",
+      "severity": "warning",
+      "title": "Installer and protocol-error signals occur together",
+      "detail": "The supplied text contains both installer messages and protocol/JSON errors. This is a hypothesis: combined stdout/stderr logs do not prove stream contamination.",
+      "next_step": "Verify which stream carried installer output and whether dependency installation occurred during startup or the tool call."
+    }
+  ],
+  "limits": [
+    "This is static triage of supplied files, not a connection or security test.",
+    "No server, command, package, or MCP tool is executed; no network is used.",
+    "Rules can miss problems and can match unrelated messages in combined logs.",
+    "No matched rule means not verified, not readiness or safety.",
+    "Local runtime checks, when requested, inspect this host's PATH only; configured paths and environments are not tested.",
+    "Reports omit raw names, arguments, environment values, endpoints, paths, and log excerpts. The original inputs remain local."
+  ],
+  "exit_zero_means": "Analysis completed; it is not a readiness, safety, or connection result."
+}

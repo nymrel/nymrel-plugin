@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "synthetic-remote": {
+      "type": "http",
+      "url": "https://example.invalid/mcp",
+      "headers": {"Authorization": "Bearer EXAMPLE_NOT_A_REAL_TOKEN"}
+    }
+  }
+}
