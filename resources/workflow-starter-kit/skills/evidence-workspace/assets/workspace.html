@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src @@SCRIPT_HASHES@@; style-src @@STYLE_HASHES@@; connect-src 'none'; img-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer"><title>@@TITLE@@ · Nymrel</title>
+<style>
+:root{color-scheme:light;--paper:#f5f4f0;--surface:#fff;--ink:#202b28;--muted:#5a6662;--line:#d9dfd9;--accent:#425a4e;--soft:#eaf0e9;--amber:#73511b;--amber-bg:#fbf1db;--radius:17px}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}a{color:var(--accent);text-underline-offset:4px}a:hover{color:#15271c}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #857455;outline-offset:4px}.skip{position:absolute;left:12px;top:-90px;background:white;padding:10px}.skip:focus{top:8px;z-index:5}header{border-bottom:1px solid var(--line);background:rgba(255,255,255,.66)}.header-inner{max-width:1240px;margin:auto;padding:21px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{font-size:24px;font-weight:750;letter-spacing:-1px}.brand span{font-size:13px;letter-spacing:1.6px;font-weight:500;color:var(--muted);margin-left:22px}.privacy{font-size:10px;letter-spacing:1.2px;font-weight:750;border:1px solid var(--line);padding:5px 10px;border-radius:999px;white-space:nowrap}main{max-width:1240px;margin:auto;padding:47px 32px}.hero{display:grid;grid-template-columns:1fr auto;gap:40px;align-items:end}.eyebrow{font-size:10px;letter-spacing:1.8px;text-transform:uppercase;font-weight:750;color:var(--muted)}h1{font-weight:650;font-size:clamp(35px,4vw,51px);line-height:1.12;letter-spacing:-2px;margin:11px 0 17px}.lede{color:var(--muted);max-width:730px;margin:0;font-size:16px}.capture{font-size:12px;color:var(--muted);margin:16px 0 0;overflow-wrap:anywhere}.hero-stats{display:flex;gap:28px;padding-bottom:8px}.stat strong{font-size:35px;font-weight:600;line-height:1}.stat span{display:block;font-size:11px;color:var(--muted);margin-top:10px}.notice{margin:26px 0 29px;border:1px solid var(--line);border-left:3px solid var(--accent);padding:13px 17px;border-radius:0 9px 9px 0;color:var(--muted);background:#f9faf7;font-size:13px}.toolbar{display:flex;justify-content:space-between;gap:15px;align-items:center;flex-wrap:wrap}.tabs{display:flex;gap:5px;flex-wrap:wrap}button{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:9px;padding:8px 13px;min-height:42px}.tabs button{border-color:transparent;background:transparent}.tabs button[aria-pressed=true]{background:var(--ink);color:#fff}.search{display:flex;align-items:center;gap:8px}.search label{font-size:12px;color:var(--muted)}input{border:1px solid var(--line);border-radius:9px;padding:9px 12px;background:#fff;max-width:100%;min-height:43px;width:220px}.results{font-size:12px;color:var(--muted);margin:15px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:23px;min-width:0}.card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.status{display:inline-flex;border-radius:6px;font-size:11px;line-height:1.5;padding:5px 8px;font-weight:650}.status.success{background:var(--soft);color:#304e39}.status.warning{background:var(--amber-bg);color:var(--amber)}.status.neutral{background:#eeefec;color:#4b5652}h2{font-size:21px;line-height:1.3;letter-spacing:-.55px;margin:18px 0 12px;font-weight:650;overflow-wrap:anywhere}.facts{font-size:13px;color:var(--muted)}.facts p{margin:6px 0;overflow-wrap:anywhere}.evidence-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:20px 0;padding:15px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);gap:15px}.evidence-grid span{overflow-wrap:anywhere;font-size:9px;letter-spacing:1.3px;display:block;color:var(--muted)}.evidence-grid strong{font-size:12px;line-height:1.4;font-weight:600;display:block;margin-top:5px;overflow-wrap:anywhere}.next>span{font-size:11px;font-weight:700;color:var(--accent)}.next p{font-size:13px;margin:7px 0 16px}details{border-top:1px solid var(--line);padding-top:13px;font-size:12px;color:var(--muted)}summary{cursor:pointer;min-height:28px;font-weight:600;color:var(--ink)}details dl{margin:14px 0}dt{font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-top:9px}dd{margin:3px 0;overflow-wrap:anywhere}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px}details ul{padding-left:17px}details li{margin:6px 0}details a{display:inline-block;padding:6px 0}.empty{background:white;border:1px dashed var(--line);border-radius:var(--radius);padding:35px;text-align:center}.empty p{color:var(--muted)}[hidden]{display:none!important}footer{margin-top:30px;padding-top:22px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;align-items:center;color:var(--muted);font-size:12px}.hash{overflow-wrap:anywhere;max-width:690px;font-size:10px}.export-note{font-size:11px;margin:8px 0 0;color:var(--muted)}noscript{display:block;background:var(--amber-bg);padding:14px;margin:15px 0}body.no-js .toolbar{display:none}@media(max-width:760px){.header-inner{padding:17px 20px}.brand span{display:none}main{padding:30px 18px}.hero{grid-template-columns:1fr;gap:23px}.hero-stats{gap:38px}.stat strong{font-size:28px}.notice{margin-top:22px}.grid{grid-template-columns:1fr}.card{padding:20px}.toolbar{display:block}.search{margin-top:16px;align-items:center}.search input{flex:1;width:auto;min-width:0}.tabs{gap:2px}.tabs button{padding:8px 11px;font-size:13px}.evidence-grid{gap:10px}footer{align-items:flex-start;flex-direction:column}h1{letter-spacing:-1.4px}}@media print{body{background:white}main{padding:20px}.toolbar,#download,.export-note{display:none}.grid{display:block}.card{break-inside:avoid;margin:15px 0}.card[hidden]{display:block!important}details{display:block}.hero-stats{display:none}header{background:white}.notice{margin:20px 0}}
+
+/* Usability controls share the existing offline view; no external resources. */
+:root{color-scheme:light dark}
+button,input,summary,details a{min-height:44px}
+main:focus{outline:none}
+.hero>div{min-width:0}
+h1,.lede{overflow-wrap:anywhere}
+summary{display:list-item;padding:10px 0}
+summary::marker{color:var(--accent)}
+.eyebrow,.privacy,.evidence-grid span,.hash{font-size:11px}
+.evidence-grid span{letter-spacing:.6px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.legend{border:1px solid var(--line);border-radius:9px;padding:6px 16px;margin:0 0 22px;background:var(--surface)}
+.legend p{margin:8px 0 14px;max-width:900px}
+.filter-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.selectors{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px}
+.advanced-filters{margin-top:16px;padding:0 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.advanced-filters summary{font-size:13px}
+.advanced-filters .selectors{margin:4px 0 15px}
+.filter-count{font-weight:400;color:var(--muted)}
+.selectors label{display:flex;flex:1;min-width:160px;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}
+input,select{font-size:16px}
+input::placeholder{color:var(--muted);opacity:1}
+select{font:inherit;font-size:16px;min-height:44px;border:1px solid var(--line);border-radius:9px;padding:8px 12px;background:var(--surface);color:var(--ink);width:100%;max-width:100%}
+select:focus-visible{outline:3px solid #857455;outline-offset:4px}
+.coordination-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;margin:0 0 14px}
+.coordination-meta>div{min-width:0}.coordination-meta>div:last-child{grid-column:1/-1}
+.coordination-meta dt{color:var(--muted)}.coordination-meta dd{font-size:13px}
+.next p{overflow-wrap:anywhere}
+body.no-js .selectors,body.no-js .advanced-filters{display:none}
+.search-help{font-size:11px;color:var(--muted);margin:6px 0 0}
+body.no-js .filter-actions,body.no-js .search-help,body.no-js #download{display:none}
+button:disabled{cursor:default;opacity:.6}
+@media screen and (prefers-color-scheme:dark){
+ :root{--paper:#171e1b;--surface:#222d27;--ink:#f0f4ef;--muted:#becac0;--line:#506257;--accent:#c1d7c4;--soft:#314937;--amber:#f6d999;--amber-bg:#473822}
+ header,button,input,.empty,.skip,.notice{background:var(--surface);color:var(--ink)}
+ a:hover{color:#fff}
+ .status.success{color:#d1ead4}.status.neutral{background:#3c493f;color:#e0e8e1}
+ .tabs button[aria-pressed=true]{background:var(--accent);color:var(--paper)}
+ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible,summary:focus-visible{outline-color:#f6d999}
+}
+@media(max-width:760px){.filter-actions button{flex:1;min-width:130px}.search{display:block}.search label{display:block;margin-bottom:5px}.search input{width:100%}.advanced-filters .selectors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.selectors label{min-width:0}.selectors label:last-child{grid-column:1/-1}}
+@media screen and (max-width:360px){.evidence-grid{grid-template-columns:1fr;gap:12px}.evidence-grid>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:baseline}.evidence-grid strong{margin-top:0}}
+@media print{.filter-actions,.legend,.search-help,.selectors,.advanced-filters{display:none}body:not([data-record-count="0"]) .results,body:not([data-record-count="0"]) #empty{display:none}details:not([open])>*:not(summary){display:block}}
+</style></head>
+<body class="no-js" data-default-filter="@@DEFAULTFILTER@@" data-record-count="@@COUNT@@"><a class="skip" href="#main">Skip to evidence</a><header><div class="header-inner"><div class="brand">nymrel<span>WORKFLOW RESOURCES</span></div><div class="privacy">@@AUDIENCE@@ SNAPSHOT</div></div></header>
+<main id="main" tabindex="-1"><section class="hero"><div><div class="eyebrow">Evidence workspace</div><h1>@@TITLE@@</h1><p class="lede">@@SCOPE@@</p><p class="capture">Captured @@CAPTURED@@</p></div><div class="hero-stats" aria-label="Snapshot counts"><div class="stat"><strong>@@COUNT@@</strong><span>source records</span></div><div class="stat"><strong>@@ATTENTION@@</strong><span>need more evidence</span></div></div></section>
+<div class="notice"><strong>Captured evidence.</strong> This snapshot does not refresh automatically. Open the source to check what has changed before acting.</div>
+<details class="legend"><summary>How to read this snapshot</summary><p><strong>Unverified</strong> means the needed evidence was not supplied. <strong>Open</strong> means a GitHub issue remains open; <strong>Closed · reported complete</strong> records its closure reason, with completion proof checked separately. <strong>Saved</strong> means a plugin release exists; its behavior in ChatGPT still needs a check. <strong>Merged</strong> means code was merged, with deployment checked separately. <strong>Needs evidence</strong> filters records marked for a follow-up, including stale sources. Those markers describe this snapshot's evidence, not a priority ranking or permission to act.</p>@@COORDINATIONLEGEND@@</details>
+<noscript>Interactive filters and download controls require JavaScript. All evidence cards and source links remain readable below. The delivered view.json file contains the same snapshot data.</noscript>
+<section aria-label="Evidence filters"><div class="toolbar"><div class="tabs" role="group" aria-label="Filter by work type">@@FILTERS@@</div><div class="search"><label for="search">Find evidence</label><input id="search" type="search" placeholder="Search words or revision" autocomplete="off" aria-describedby="search-help"></div></div><details class="advanced-filters" id="advanced-filters" hidden><summary>Filter by owner, project, or status<span class="filter-count" id="filter-count"></span></summary>@@SELECTORS@@</details><p class="search-help" id="search-help">Search uses all words in any order. Escape clears search.</p><div class="filter-actions"><button type="button" id="clear">Reset view</button><button type="button" id="details-toggle" aria-controls="cards">Show source details</button></div><p class="results" id="results" role="status" aria-live="polite" aria-atomic="true">@@COUNT@@ source records in this snapshot</p></section>
+<section class="grid" id="cards" aria-label="Source evidence">@@CARDS@@</section><section class="empty" id="empty" hidden><h2 id="empty-heading">No matching evidence</h2><p id="empty-message">Try fewer search words or reset the view. This snapshot contains only the sources selected for it.</p><button type="button" id="reset">Reset view</button></section>
+<footer><div><strong>Sources over status claims.</strong><p class="hash">Visible source SHA-256 · @@HASH@@</p><p class="export-note">Exports include all records visible to this snapshot's audience, not only the active filter. Keep private exports private.</p></div><div><button type="button" id="download" aria-describedby="export-status">Download all snapshot data</button><p id="export-status" class="export-note" role="status" aria-live="polite">JSON file · includes all records in this snapshot</p></div></footer></main>
+<script type="application/json" id="evidence-data">@@DATA@@</script>
+<script>
+"use strict";
+document.body.classList.remove("no-js");
+const cards=Array.from(document.querySelectorAll(".card"));
+const buttons=Array.from(document.querySelectorAll("[data-filter]"));
+const search=document.getElementById("search");
+const clear=document.getElementById("clear");
+const detailsToggle=document.getElementById("details-toggle");
+const selectors=Array.from(document.querySelectorAll(".selectors select"));
+const advancedFilters=document.getElementById("advanced-filters");
+advancedFilters.hidden=selectors.length===0;
+const defaultFilter=document.body.dataset.defaultFilter;
+let filter=defaultFilter;
+function visibleDetails(){return cards.filter(card=>!card.hidden).map(card=>card.querySelector("details"));}
+function updateDetailsLabel(){
+ const items=visibleDetails();
+ detailsToggle.disabled=items.length===0;
+ detailsToggle.textContent=items.length&&items.every(item=>item.open)?"Hide source details":"Show source details";
+}
+function apply(){
+ let count=0;
+ const words=search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+ cards.forEach(card=>{
+  const matchesType=filter==="All"||(filter==="Current"?card.dataset.category!=="History":filter==="Attention"?card.dataset.attention==="true":card.dataset.category===filter);
+  const matchesSelectors=selectors.every(select=>!select.value||card.dataset[select.id.split("-")[0]]===select.value);
+  const show=matchesType&&matchesSelectors&&words.every(word=>card.dataset.search.includes(word));
+  card.hidden=!show;
+  if(show)count++;
+ });
+ document.getElementById("results").textContent=count+" of "+cards.length+" source records shown"+(filter==="Current"?" · History hidden":"");
+ document.getElementById("empty").hidden=count!==0;
+ document.getElementById("empty-heading").textContent=cards.length?"No matching evidence":"No evidence in this snapshot";
+ document.getElementById("empty-message").textContent=cards.length?"Try fewer search words or reset the view. This snapshot contains only the sources selected for it.":"No source records were included for this audience. This does not establish that no work exists.";
+ document.getElementById("reset").hidden=cards.length===0;
+ const activeSelectors=selectors.filter(select=>select.value).length;
+ document.getElementById("filter-count").textContent=activeSelectors?" · "+activeSelectors+" active":"";
+ clear.disabled=filter===defaultFilter&&search.value.length===0&&selectors.every(select=>!select.value);
+ buttons.forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.filter===filter)));
+ updateDetailsLabel();
+}
+function reset(){
+ filter=defaultFilter;search.value="";selectors.forEach(select=>{select.value="";});apply();
+ const startingFilter=buttons.find(button=>button.dataset.filter===defaultFilter);
+ if(startingFilter)startingFilter.focus();
+}
+buttons.forEach(b=>b.addEventListener("click",()=>{filter=b.dataset.filter;apply();}));
+selectors.forEach(select=>select.addEventListener("change",()=>{
+ // Selecting historical status is an explicit request to reveal History.
+ if(select.id==="state-filter"&&select.value==="superseded")filter="History";
+ else if(select.id==="state-filter"&&select.value)filter="All";
+ apply();
+}));
+search.addEventListener("input",apply);
+search.addEventListener("keydown",event=>{
+ if(event.key==="Escape"){event.preventDefault();search.value="";apply();}
+});
+clear.addEventListener("click",reset);
+document.getElementById("reset").addEventListener("click",reset);
+detailsToggle.addEventListener("click",()=>{
+ const items=visibleDetails();
+ const expand=!items.every(item=>item.open);
+ items.forEach(item=>{item.open=expand;});
+ updateDetailsLabel();
+});
+cards.forEach(card=>card.querySelector("details").addEventListener("toggle",updateDetailsLabel));
+document.getElementById("download").addEventListener("click",()=>{
+ const status=document.getElementById("export-status");
+ let href;
+ try{
+  const view=JSON.parse(document.getElementById("evidence-data").textContent);
+  href=URL.createObjectURL(new Blob([JSON.stringify(view,null,2)],{type:"application/json"}));
+  const a=document.createElement("a");
+  a.href=href;a.download="nymrel-"+view.audience+"-evidence.json";
+  document.body.appendChild(a);a.click();a.remove();
+  status.textContent="Download requested: all "+view.cards.length+" "+view.audience+" records. Check your browser's downloads.";
+ }catch(error){
+  status.textContent="Download could not start. Use the view.json file delivered with this snapshot.";
+ }finally{if(href)setTimeout(()=>URL.revokeObjectURL(href),1000);}
+});
+// Back/Forward may restore form values after the initial script runs.
+// Reconcile after restoration; a cached page retains its chosen category.
+window.addEventListener("pageshow",event=>{
+ setTimeout(()=>{
+  if(!event.persisted&&filter===defaultFilter){
+   const restoredState=selectors.find(select=>select.id==="state-filter");
+   if(restoredState&&restoredState.value)filter=restoredState.value==="superseded"?"History":"All";
+  }
+  apply();
+ },0);
+});
+apply();
+</script></body></html>
+
+

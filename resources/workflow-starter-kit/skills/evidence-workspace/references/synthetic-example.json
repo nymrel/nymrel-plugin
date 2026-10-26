@@ -1,0 +1,28 @@
+{
+  "format": "nymrel-evidence-view/1",
+  "title": "Synthetic evidence example",
+  "scope": "Synthetic fixtures only. These are not Nymrel production results.",
+  "captured_at": "2026-09-29T20:00:00Z",
+  "freshness_hours": 24,
+  "records": [
+    {
+      "id": "synthetic-pr",
+      "kind": "github_pr",
+      "audience": "public",
+      "title": "Synthetic draft with missing evidence",
+      "source_url": "https://github.com/example/repo/pull/1",
+      "observed_at": "2026-09-29T20:00:00Z",
+      "data": {
+        "state": "open",
+        "draft": true,
+        "merged": false,
+        "merged_at": null,
+        "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "merge_commit_sha": null,
+        "reviews": null,
+        "checks": null
+      }
+    }
+  ]
+}
+
