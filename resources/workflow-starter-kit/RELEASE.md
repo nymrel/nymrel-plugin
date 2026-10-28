@@ -47,6 +47,23 @@ The public pull request records the exact source and hosted-check state.
 Automated checks validate file behavior; they do not establish model routing,
 host installation, or actual user adoption.
 
+## October 28 source correction
+
+Handoff records now use the same exact GitHub issue/pull-comment URL guard as
+coordination updates, in addition to requiring the matching comment ID. A blob,
+tree, commit, comparison, zero issue number, or extra path segment cannot be
+presented as a recorded issue-comment handoff. Valid issue and pull comment
+locators still report pickup as unverified; URL validation does not authenticate
+the source or establish owner acceptance.
+
+The corrected source passed 123 renderer/CLI/coordination tests on Python 3.13.5,
+including rejection cases, both valid path types, and exact comment-ID binding.
+Other matrix and hosted results remain separate evidence in the owning PR.
+The ZIP is rebuilt from the same 14 source paths with its existing deterministic
+metadata and a refreshed external checksum. Previous archives remain at their
+immutable source pins: the original preview at `5afb914` (SHA-256 `2d7cc41f...`)
+and the first integrated kit at `9c652d3` (SHA-256 `b5cb7e68...`).
+
 ## Release boundaries
 
 Only the source kit is offered in this release. It makes no service deployment,
