@@ -1,0 +1,8 @@
+Synthetic demonstration only; this is not a reproduced project failure.
+HTTP request completed.
+spawn node ENOENT
+npm notice checking installation
+added 12 packages
+JSON-RPC parse error: unexpected token
+registry.npmjs.org request blocked: 403
+Tool response timeout after parsing stage started.

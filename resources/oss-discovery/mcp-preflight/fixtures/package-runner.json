@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "synthetic-fetch": {
+      "command": "npx",
+      "args": ["--yes", "example-mcp-fetch@latest"],
+      "env": {"SYNTHETIC_API_KEY": "EXAMPLE_NOT_A_REAL_KEY"}
+    }
+  }
+}

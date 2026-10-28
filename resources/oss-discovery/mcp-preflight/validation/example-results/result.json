@@ -1,0 +1,119 @@
+{
+  "schema": "nymrel-preflight-scenario-result/0.1",
+  "evidence_mode": "rights-cleared synthetic offline fixtures",
+  "status": "passed",
+  "core_sha256": "20fefde36fd9a8d19314ce9f2d87e301cf98d622be537d801be42291178384e0",
+  "evaluator_sha256": "ab4dd11a15c26d87cfb3ccd900750c6da952c6d71b2b9e4507c7f6fb69715eff",
+  "automated_fixture_results": {
+    "cases": 5,
+    "passed": 5,
+    "failed": 0
+  },
+  "scenarios": [
+    {
+      "id": "missing-runtime",
+      "status": "passed",
+      "checks": {
+        "expected_assessment": true,
+        "no_readiness_or_security_assessment": true,
+        "required_categories_present": true,
+        "only_allowed_categories": true,
+        "forbidden_categories_absent": true,
+        "no_unsupported_causal_claim": true,
+        "seeded_values_absent": true
+      },
+      "finding_codes": [
+        "runtime-log-signal",
+        "timeout-stage-unknown"
+      ]
+    },
+    {
+      "id": "installer-streams",
+      "status": "passed",
+      "checks": {
+        "expected_assessment": true,
+        "no_readiness_or_security_assessment": true,
+        "required_categories_present": true,
+        "only_allowed_categories": true,
+        "forbidden_categories_absent": true,
+        "no_unsupported_causal_claim": true,
+        "seeded_values_absent": true,
+        "required_uncertainty_preserved": true
+      },
+      "finding_codes": [
+        "installer-protocol-log-signal"
+      ]
+    },
+    {
+      "id": "certificate-egress",
+      "status": "passed",
+      "checks": {
+        "expected_assessment": true,
+        "no_readiness_or_security_assessment": true,
+        "required_categories_present": true,
+        "only_allowed_categories": true,
+        "forbidden_categories_absent": true,
+        "no_unsupported_causal_claim": true,
+        "seeded_values_absent": true
+      },
+      "finding_codes": [
+        "certificate-log-signal",
+        "proxy-log-signal",
+        "registry-egress-log-signal"
+      ]
+    },
+    {
+      "id": "hidden-dependency-unknown",
+      "status": "passed",
+      "checks": {
+        "expected_assessment": true,
+        "no_readiness_or_security_assessment": true,
+        "required_categories_present": true,
+        "only_allowed_categories": true,
+        "forbidden_categories_absent": true,
+        "no_unsupported_causal_claim": true,
+        "seeded_values_absent": true,
+        "required_uncertainty_preserved": true
+      },
+      "finding_codes": [
+        "timeout-stage-unknown"
+      ]
+    },
+    {
+      "id": "no-signal",
+      "status": "passed",
+      "checks": {
+        "expected_assessment": true,
+        "no_readiness_or_security_assessment": true,
+        "required_categories_present": true,
+        "only_allowed_categories": true,
+        "forbidden_categories_absent": true,
+        "no_unsupported_causal_claim": true,
+        "seeded_values_absent": true,
+        "required_uncertainty_preserved": true
+      },
+      "finding_codes": []
+    }
+  ],
+  "human_comparison": {
+    "status": "not-run",
+    "consenting_participants": null,
+    "paired_observations": null,
+    "diagnosis_accuracy": null,
+    "median_time_improvement_percent": null,
+    "repeat_users": null
+  },
+  "incumbent_baseline": {
+    "name": "MCP Inspector documentation",
+    "status": "not-run",
+    "version": null,
+    "documentation_revision": null,
+    "comparison_scope": "Supplied-file/documentation comparison only; live Inspector diagnostics are not evaluated."
+  },
+  "limits": [
+    "Passing fixtures checks declared diagnostic behavior, not real-world diagnosis or a product gap.",
+    "No server, package, subprocess, or network request was run by this evaluator.",
+    "The hidden dependency scenario intentionally lacks enough evidence to identify Node or npm.",
+    "Human outcomes, comparative usefulness, repeat use, and security clearance remain unmeasured."
+  ]
+}

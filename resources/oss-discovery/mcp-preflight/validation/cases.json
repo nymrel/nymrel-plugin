@@ -1,0 +1,60 @@
+{
+  "schema": "nymrel-preflight-scenarios/0.1",
+  "cases": [
+    {
+      "id": "missing-runtime",
+      "config": "cases/missing-runtime.json",
+      "log": "cases/missing-runtime.log",
+      "expected": {
+        "assessment": "needs-investigation",
+        "required_codes": ["runtime-log-signal", "timeout-stage-unknown"],
+        "allowed_codes": ["runtime-log-signal", "timeout-stage-unknown"],
+        "forbidden_codes": ["installer-protocol-log-signal", "registry-egress-log-signal"]
+      }
+    },
+    {
+      "id": "installer-streams",
+      "config": "cases/installer-streams.json",
+      "log": "cases/installer-streams.log",
+      "expected": {
+        "assessment": "needs-investigation",
+        "required_codes": ["installer-protocol-log-signal"],
+        "allowed_codes": ["installer-protocol-log-signal"],
+        "forbidden_codes": ["runtime-log-signal", "certificate-log-signal", "registry-egress-log-signal"]
+      }
+    },
+    {
+      "id": "certificate-egress",
+      "config": "cases/certificate-egress.json",
+      "log": "cases/certificate-egress.log",
+      "expected": {
+        "assessment": "needs-investigation",
+        "required_codes": ["certificate-log-signal", "proxy-log-signal", "registry-egress-log-signal"],
+        "allowed_codes": ["certificate-log-signal", "proxy-log-signal", "registry-egress-log-signal"],
+        "forbidden_codes": ["runtime-log-signal", "certificate-verification-config", "installer-protocol-log-signal"]
+      }
+    },
+    {
+      "id": "hidden-dependency-unknown",
+      "config": "cases/hidden-dependency-unknown.json",
+      "log": "cases/hidden-dependency-unknown.log",
+      "expected": {
+        "assessment": "needs-investigation",
+        "required_codes": ["timeout-stage-unknown"],
+        "allowed_codes": ["timeout-stage-unknown"],
+        "forbidden_codes": ["runtime-log-signal", "package-resolution", "package-pin-unconfirmed", "installer-protocol-log-signal", "registry-egress-log-signal"]
+      }
+    },
+    {
+      "id": "no-signal",
+      "config": "cases/no-signal.json",
+      "log": "cases/no-signal.log",
+      "expected": {
+        "assessment": "not-verified",
+        "required_codes": [],
+        "allowed_codes": [],
+        "forbidden_codes": ["runtime-log-signal", "package-resolution", "timeout-stage-unknown", "certificate-log-signal"]
+      }
+    }
+  ]
+}

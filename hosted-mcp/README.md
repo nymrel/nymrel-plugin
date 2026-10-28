@@ -99,7 +99,7 @@ unrelated provider token fails closed with `401` and is not an activation. No
 provider secret, production token, tester identity, or real customer content
 is part of source control.
 
-The pinned FastMCP 3.4.7 integration does not leave the OpenAI-required
+The pinned FastMCP 3.4.10 integration does not leave the OpenAI-required
 top-level `securitySchemes` field to implicit framework behavior. The hosted
 list-tools adapter publishes that field explicitly and retains the same value
 under `_meta` for older clients.

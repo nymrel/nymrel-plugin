@@ -1,0 +1,230 @@
+[
+  {
+    "path": "LICENSE",
+    "sha256": "46ade72a7e17940f952941f334ce77a9ad8305c20c75099680f487f9af3a413c"
+  },
+  {
+    "path": "README.md",
+    "sha256": "a2e755eb21fbf526f5b224c2f230d18986ffbe1de3814d84a378827b22c9e672"
+  },
+  {
+    "path": "examples/diagnostic-report/index.html",
+    "sha256": "ee26d9fa453f2b47e1dd6b0a10115186c661d04c7354213948e825993edbaf64"
+  },
+  {
+    "path": "examples/diagnostic-report/report.json",
+    "sha256": "64c025a5945b4522e2b9c3d5e1295a32bbcf3207c7f3ac5b5705f289fb5c6986"
+  },
+  {
+    "path": "examples/unverified-report/index.html",
+    "sha256": "17f24a24a460e907a369000002cb913b3ac92e7e9cebe9ff75e90f8f8bfa9d04"
+  },
+  {
+    "path": "examples/unverified-report/report.json",
+    "sha256": "240275df442e20bddf673fb3ce6f025f45862286910ec4067abaf5e5b666ac7e"
+  },
+  {
+    "path": "mcp-preflight/LICENSE",
+    "sha256": "46ade72a7e17940f952941f334ce77a9ad8305c20c75099680f487f9af3a413c"
+  },
+  {
+    "path": "mcp-preflight/README.md",
+    "sha256": "555becc55eef20fbb896e34804888284c65a25b50a4afb177de4eb09da132b22"
+  },
+  {
+    "path": "mcp-preflight/fixtures/package-runner.json",
+    "sha256": "3ca55bd0ce6235ecc060834923ea484df11a9386f4194e3922628f869e506ad5"
+  },
+  {
+    "path": "mcp-preflight/fixtures/setup.log",
+    "sha256": "4de44f02201f2c5967e80feb720c19dfe76875b4b073cc8c0cd886a9b8ead7c1"
+  },
+  {
+    "path": "mcp-preflight/fixtures/unverified-remote.json",
+    "sha256": "864049aefc54de66ed8d5af4ab9a880de3f65ccd0d4daafad7e1e36750d9cc2a"
+  },
+  {
+    "path": "mcp-preflight/preflight.py",
+    "sha256": "20fefde36fd9a8d19314ce9f2d87e301cf98d622be537d801be42291178384e0"
+  },
+  {
+    "path": "mcp-preflight/tests/test_preflight.py",
+    "sha256": "449cc8dba4efff17bef1faae0b12c7be8f8f42923c6df2f992bbf2764de79c5e"
+  },
+  {
+    "path": "mcp-preflight/tests/test_validation.py",
+    "sha256": "3c8789a4792e8a44d6a878eca8baef251b99004f0e8decbfab641ff3affada4d"
+  },
+  {
+    "path": "mcp-preflight/validation/README.md",
+    "sha256": "a3da79ed8a12ac9e737835ccc4001b738f67fba34f7f01ca6ff419011ade6ce1"
+  },
+  {
+    "path": "mcp-preflight/validation/TASK_CARDS.md",
+    "sha256": "a807a622e9f56bec2c7de79bc74cc4e405b9abd17112f0d73a89b81a65e1d577"
+  },
+  {
+    "path": "mcp-preflight/validation/cases/certificate-egress.json",
+    "sha256": "30954814d8d4e37fd88b90dc841f0dcb718359b92bf8c054a19eda1ba2219781"
+  },
+  {
+    "path": "mcp-preflight/validation/cases/certificate-egress.log",
+    "sha256": "df6a01022fc60124531abd91f19ccd48b5f8c9fd8ddea3ef4e785d45005c86d6"
+  },
+  {
+    "path": "mcp-preflight/validation/cases/hidden-dependency-unknown.json",
+    "sha256": "8f13a09001f593139b78d3a84443240dab6a20e48771687442495c5753028ac7"
+  },
+  {
+    "path": "mcp-preflight/validation/cases/hidden-dependency-unknown.log",
+    "sha256": "1d7794eabc6d8d5a44c57cedbbf66acf249abda0a3f2d814e6e985b68c1f80ee"
+  },
+  {
+    "path": "mcp-preflight/validation/cases/installer-streams.json",
+    "sha256": "484bf524e279a900e300c7a9687dad0dfc65db806237adda2af61c46bddd4ee9"
+  },
+  {
+    "path": "mcp-preflight/validation/cases/installer-streams.log",
+    "sha256": "1d23d0e52c617f1caac0af4536f6e69341f4282ae368f8f529a3d2f5508422d5"
+  },
+  {
+    "path": "mcp-preflight/validation/cases/missing-runtime.json",
+    "sha256": "76e53e595551b304b3cc72086f81a13f4abefe295e682ae367bae623e4032f7b"
+  },
+  {
+    "path": "mcp-preflight/validation/cases/missing-runtime.log",
+    "sha256": "612199ff3d3c0bfe375941c21a1d7853a85ab22340236567205185d8eeff5a72"
+  },
+  {
+    "path": "mcp-preflight/validation/cases/no-signal.json",
+    "sha256": "d81034f47c336a8994fc65a708627c94b8bc548523137ab2171499c66ebb699d"
+  },
+  {
+    "path": "mcp-preflight/validation/cases/no-signal.log",
+    "sha256": "cab1aaf25d727ef1fee32919c37d1b9a5021cdec870e72daeed0b575f5a9b352"
+  },
+  {
+    "path": "mcp-preflight/validation/cases.json",
+    "sha256": "0207096dd1ef25985f58d0cf53dce5f1b87dc8382189c52409189da96ec6c2bf"
+  },
+  {
+    "path": "mcp-preflight/validation/example-results/certificate-egress.html",
+    "sha256": "4686ec5450d74bf30e95d5bd74abffe575ccd27a8197478a0c44081fb4254bea"
+  },
+  {
+    "path": "mcp-preflight/validation/example-results/certificate-egress.report.json",
+    "sha256": "45a44641297c0c84369e00767ce1c902ca84ec250517de51e39eb0a1c4300e3c"
+  },
+  {
+    "path": "mcp-preflight/validation/example-results/hidden-dependency-unknown.html",
+    "sha256": "f1ab5d010c2bb0dd192973343c6d4aa619ce277c8467f42649bd302b17f965a4"
+  },
+  {
+    "path": "mcp-preflight/validation/example-results/hidden-dependency-unknown.report.json",
+    "sha256": "525c2f9e7da2cd988d28c3420d13b382a068e1c5c5704e90f2ab7311340116c2"
+  },
+  {
+    "path": "mcp-preflight/validation/example-results/index.html",
+    "sha256": "622da92f8f58c6086198b105446cec8e479250bddc93aca344b6bcd7342e3f40"
+  },
+  {
+    "path": "mcp-preflight/validation/example-results/installer-streams.html",
+    "sha256": "443c83a6804435058970567b8bbf99878cfe922f20a1862468877752c85b0fe3"
+  },
+  {
+    "path": "mcp-preflight/validation/example-results/installer-streams.report.json",
+    "sha256": "59cb856c12f8aadb7d2d31e06e02b7ab24a14f5399d4a46f79272cf109f702c9"
+  },
+  {
+    "path": "mcp-preflight/validation/example-results/missing-runtime.html",
+    "sha256": "1bc15290f1d5b7d3d71cf2a3c28870f4b3054194a442f2c5dff6285ab98c9796"
+  },
+  {
+    "path": "mcp-preflight/validation/example-results/missing-runtime.report.json",
+    "sha256": "cd6e2fef0b7ea340397f302a4b5300ecb7406cff99acc5902fea45d850c0d28e"
+  },
+  {
+    "path": "mcp-preflight/validation/example-results/no-signal.html",
+    "sha256": "17f24a24a460e907a369000002cb913b3ac92e7e9cebe9ff75e90f8f8bfa9d04"
+  },
+  {
+    "path": "mcp-preflight/validation/example-results/no-signal.report.json",
+    "sha256": "240275df442e20bddf673fb3ce6f025f45862286910ec4067abaf5e5b666ac7e"
+  },
+  {
+    "path": "mcp-preflight/validation/example-results/result.json",
+    "sha256": "63804ced4e22e7a132b0aa23f1e78cd20b1d171a745ceae12a99b15952756ad1"
+  },
+  {
+    "path": "mcp-preflight/validation/observations-template.csv",
+    "sha256": "8391d64d521176339a69155195e049f18af7c5aef457dfe416b8153d66f228b5"
+  },
+  {
+    "path": "mcp-preflight/validation/observations-template.json",
+    "sha256": "20b5ee597aeae9e3befeb17325d3086ff271b20ab125a455a68df93476d99d89"
+  },
+  {
+    "path": "mcp-preflight/validation/participant-cases/A.config.json",
+    "sha256": "76e53e595551b304b3cc72086f81a13f4abefe295e682ae367bae623e4032f7b"
+  },
+  {
+    "path": "mcp-preflight/validation/participant-cases/A.log",
+    "sha256": "612199ff3d3c0bfe375941c21a1d7853a85ab22340236567205185d8eeff5a72"
+  },
+  {
+    "path": "mcp-preflight/validation/participant-cases/B.config.json",
+    "sha256": "484bf524e279a900e300c7a9687dad0dfc65db806237adda2af61c46bddd4ee9"
+  },
+  {
+    "path": "mcp-preflight/validation/participant-cases/B.log",
+    "sha256": "1d23d0e52c617f1caac0af4536f6e69341f4282ae368f8f529a3d2f5508422d5"
+  },
+  {
+    "path": "mcp-preflight/validation/participant-cases/C.config.json",
+    "sha256": "30954814d8d4e37fd88b90dc841f0dcb718359b92bf8c054a19eda1ba2219781"
+  },
+  {
+    "path": "mcp-preflight/validation/participant-cases/C.log",
+    "sha256": "df6a01022fc60124531abd91f19ccd48b5f8c9fd8ddea3ef4e785d45005c86d6"
+  },
+  {
+    "path": "mcp-preflight/validation/participant-cases/D.config.json",
+    "sha256": "8f13a09001f593139b78d3a84443240dab6a20e48771687442495c5753028ac7"
+  },
+  {
+    "path": "mcp-preflight/validation/participant-cases/D.log",
+    "sha256": "1d7794eabc6d8d5a44c57cedbbf66acf249abda0a3f2d814e6e985b68c1f80ee"
+  },
+  {
+    "path": "mcp-preflight/validation/participant-cases/E.config.json",
+    "sha256": "d81034f47c336a8994fc65a708627c94b8bc548523137ab2171499c66ebb699d"
+  },
+  {
+    "path": "mcp-preflight/validation/participant-cases/E.log",
+    "sha256": "cab1aaf25d727ef1fee32919c37d1b9a5021cdec870e72daeed0b575f5a9b352"
+  },
+  {
+    "path": "mcp-preflight/validation/run_scenarios.py",
+    "sha256": "ab4dd11a15c26d87cfb3ccd900750c6da952c6d71b2b9e4507c7f6fb69715eff"
+  },
+  {
+    "path": "research/DISTRIBUTION.md",
+    "sha256": "9728379246bd02d5400e8de7b2f1320835098db38fa72fc2e64bd1bfe8c13e88"
+  },
+  {
+    "path": "research/IMPLEMENTATION.md",
+    "sha256": "eaabd3ba639ab1612884bde02297061d8912b8cb6046c47697bf412c35883504"
+  },
+  {
+    "path": "research/OPPORTUNITY.md",
+    "sha256": "bca468ce8c6df45cb6bac466c9dc5f9f0219f246cb0bce0b971a058560846b64"
+  },
+  {
+    "path": "research/VALIDATION.md",
+    "sha256": "e7b9831e7619e8e3bc6d989436f81edc707185e1b79c8bc4964d5ba2f8fb6d92"
+  },
+  {
+    "path": "research/VERIFICATION.md",
+    "sha256": "a930e16b515b92374340a91df15e2d8e1b3021f4583f8500ad4a362524a23cde"
+  }
+]

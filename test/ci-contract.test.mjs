@@ -162,7 +162,7 @@ test("Python runtime and test dependencies are explicit", () => {
   const runtime = read("hosted-mcp/requirements.txt");
   const tests = read("hosted-mcp/requirements-test.txt");
   const pyproject = read("hosted-mcp/pyproject.toml");
-  assert.equal(runtime.trim().replace(/\r/gu, ""), "fastmcp==3.4.7\nrequests==2.34.2");
+  assert.equal(runtime.trim().replace(/\r/gu, ""), "fastmcp==3.4.10\nrequests==2.34.2");
   for (const dependency of [
     "pytest==9.1.1",
     "httpx==0.28.1",

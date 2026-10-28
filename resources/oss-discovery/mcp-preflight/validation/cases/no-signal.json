@@ -1,0 +1,1 @@
+{"servers":{"PILOT_NAME_SENTINEL":{"type":"http","url":"https://example.invalid/PILOT_URL_SENTINEL","headers":{"Authorization":"PILOT_HEADER_SENTINEL"}}}}
