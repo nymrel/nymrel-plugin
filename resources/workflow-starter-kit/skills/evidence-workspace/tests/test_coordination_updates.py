@@ -67,6 +67,29 @@ class CoordinationContractTests(unittest.TestCase):
         with self.assertRaises(w.EvidenceError):
             w.build(snapshot([record]))
 
+    def test_comment_locators_reject_dot_segments_for_both_kinds(self):
+        handoff = {
+            'id': 'handoff-one', 'kind': 'handoff', 'audience': 'private',
+            'title': 'Synthetic handoff', 'observed_at': NOW,
+            'source_url': 'https://github.com/example/studio/issues/17#issuecomment-42',
+            'data': {'comment_id': 42, 'created_at': NOW,
+                     'target': 'Synthetic owner', 'summary': 'Synthetic handoff.'},
+        }
+        for kind, template in [('handoff', handoff), ('coordination_update', update())]:
+            for owner, repo in [('.', 'studio'), ('..', 'studio'),
+                                ('example', '.'), ('example', '..')]:
+                with self.subTest(kind=kind, owner=owner, repo=repo):
+                    record = copy.deepcopy(template)
+                    record['source_url'] = f'https://github.com/{owner}/{repo}/issues/17#issuecomment-42'
+                    self.assert_invalid(record)
+            for owner, repo, path in [('example', 'studio.tools', 'issues'),
+                                      ('team.name', '.repo', 'pull'),
+                                      ('team..name', '..repo', 'issues')]:
+                with self.subTest(kind=kind, owner=owner, repo=repo, path=path):
+                    record = copy.deepcopy(template)
+                    record['source_url'] = f'https://github.com/{owner}/{repo}/{path}/17#issuecomment-42'
+                    self.assertEqual(cards([record])[record['id']]['source_url'], record['source_url'])
+
     def test_normalized_card_preserves_coordination_metadata_and_source(self):
         record = update()
         card = cards([record])[record['id']]
