@@ -25,6 +25,7 @@ KINDS = {"github_issue", "github_pr", "plugin_release", "handoff", "capability",
 UPDATE_STATES = {"needs_acceptance", "next_action", "blocked", "reported_complete", "superseded", "research"}
 ID_RE = re.compile(r"[a-z0-9][a-z0-9._-]{0,95}\Z")
 SHA_RE = re.compile(r"[0-9a-f]{40}\Z")
+GITHUB_COMMENT_RE = re.compile(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(?:issues|pull)/[1-9][0-9]*#issuecomment-[1-9][0-9]*")
 SECRET_RE = re.compile(r"(?:sk-(?:proj-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|Bearer\s+[A-Za-z0-9._-]{20,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)")
 EVIDENCE_GRIDS = {
     "github_issue": (("ISSUE STATE", "Recorded"), ("EXECUTION", "Unverified"), ("COMPLETION PROOF", "Unverified")),
@@ -104,7 +105,7 @@ def update_data(data: Any, source: str, observed: datetime) -> dict:
     """Validate a minimized comment report; timestamps never establish acceptance."""
     exact_keys(data, {"lane_id", "project", "owner", "source_date", "state", "summary",
                       "next_action", "checkpoint_at", "supersedes"}, name="coordination data")
-    if not re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(?:issues|pull)/[1-9][0-9]*#issuecomment-[1-9][0-9]*", source):
+    if not GITHUB_COMMENT_RE.fullmatch(source):
         raise EvidenceError("Coordination source must be an exact GitHub issue or pull comment URL")
     lane = text(data["lane_id"], "coordination.lane_id", 96)
     if not ID_RE.fullmatch(lane):
@@ -418,6 +419,8 @@ def normalize(record: dict, as_of: datetime, ttl: float) -> dict:
             raise EvidenceError("comment_id must be a positive integer")
         if stamp(data["created_at"], "created_at") > observed:
             raise EvidenceError("Handoff is after the observation")
+        if not GITHUB_COMMENT_RE.fullmatch(source):
+            raise EvidenceError("Handoff source must be an exact GitHub issue or pull comment URL")
         if urlsplit(source).fragment != f"issuecomment-{data['comment_id']}":
             raise EvidenceError("Handoff link must bind to the exact comment ID")
         text(data["target"], "target", 300)
