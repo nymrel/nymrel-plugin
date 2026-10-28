@@ -12,9 +12,9 @@ const dependabot = read(".github/dependabot.yml");
 const vercel = JSON.parse(read("hosted-mcp/vercel.json"));
 
 const checkoutSha = "3d3c42e5aac5ba805825da76410c181273ba90b1";
-const setupNodeSha = "820762786026740c76f36085b0efc47a31fe5020";
-const setupPythonSha = "5fda3b95a4ea91299a34e894583c3862153e4b97";
-const codeqlSha = "cdf488f595d80d6e07e03d4674febd5ab45fa938";
+const setupNodeSha = "949feb2413d6458794dcd2491c4babbbce0c15c1";
+const setupPythonSha = "6d4fd22b20465ccc0f7354476588e8df7c9ca0e0";
+const codeqlSha = "9b3254085494b55a0f7c4c2b3d2d52cc712ce370";
 
 function assertedActionPins(workflow) {
   const uses = [...workflow.matchAll(/^\s*-?\s*uses:\s*([^\s#]+)/gmu)].map((match) => match[1]);
@@ -167,8 +167,8 @@ test("Python runtime and test dependencies are explicit", () => {
     "pytest==9.1.1",
     "httpx==0.28.1",
     "pip-audit==2.10.1",
-    "PyJWT[crypto]==2.13.0",
-    "ruff==0.16.7",
+    "PyJWT[crypto]==2.15.1",
+    "ruff==0.17.2",
   ]) {
     assert(tests.includes(dependency));
   }
