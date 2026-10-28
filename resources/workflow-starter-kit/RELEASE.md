@@ -64,6 +64,15 @@ metadata and a refreshed external checksum. Previous archives remain at their
 immutable source pins: the original preview at `5afb914` (SHA-256 `2d7cc41f...`)
 and the first integrated kit at `9c652d3` (SHA-256 `b5cb7e68...`).
 
+## October 28 comment locator correction
+
+The shared GitHub comment URL guard now rejects `.` and `..` as complete
+owner or repository path segments for both handoffs and coordination updates.
+Browsers normalize those segments, so they do not identify the supplied comment
+path. Other names containing dots remain accepted; handoffs still require the
+exact matching comment ID. This is source validation, not proof of source
+identity, owner acceptance, or execution.
+
 ## Release boundaries
 
 Only the source kit is offered in this release. It makes no service deployment,

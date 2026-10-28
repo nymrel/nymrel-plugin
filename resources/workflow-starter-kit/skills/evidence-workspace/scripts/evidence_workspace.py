@@ -25,7 +25,7 @@ KINDS = {"github_issue", "github_pr", "plugin_release", "handoff", "capability",
 UPDATE_STATES = {"needs_acceptance", "next_action", "blocked", "reported_complete", "superseded", "research"}
 ID_RE = re.compile(r"[a-z0-9][a-z0-9._-]{0,95}\Z")
 SHA_RE = re.compile(r"[0-9a-f]{40}\Z")
-GITHUB_COMMENT_RE = re.compile(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(?:issues|pull)/[1-9][0-9]*#issuecomment-[1-9][0-9]*")
+GITHUB_COMMENT_RE = re.compile(r"https://github\.com/(?!\.{1,2}/)[A-Za-z0-9_.-]+/(?!\.{1,2}/)[A-Za-z0-9_.-]+/(?:issues|pull)/[1-9][0-9]*#issuecomment-[1-9][0-9]*")
 SECRET_RE = re.compile(r"(?:sk-(?:proj-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|Bearer\s+[A-Za-z0-9._-]{20,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)")
 EVIDENCE_GRIDS = {
     "github_issue": (("ISSUE STATE", "Recorded"), ("EXECUTION", "Unverified"), ("COMPLETION PROOF", "Unverified")),
