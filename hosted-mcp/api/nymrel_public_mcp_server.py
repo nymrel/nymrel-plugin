@@ -23,12 +23,12 @@ import math
 import os
 import re
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import urljoin, urlparse
 
 import requests
 from fastmcp import FastMCP
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 try:  # packaged as api/ on Vercel, imported as a module in tests
     from . import native_audit
@@ -49,9 +49,15 @@ class GolfClub(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str
+    name: Annotated[str, Field(json_schema_extra={"minLength": 1, "pattern": r"\S"})]
     carry_distance_yards: int
     loft_degrees: float | None = None
+
+
+GolfClubs = Annotated[
+    list[GolfClub],
+    Field(json_schema_extra={"minItems": 1, "maxItems": 14}),
+]
 
 
 DEFAULT_BASE_URL = "https://nymrel.com/api/v1/tools/"
@@ -214,6 +220,23 @@ def _validate_payload(operation: str, payload: Mapping[str, Any]) -> None:
                 raise _bad_input(field, "is empty", hint)
             if any(not isinstance(item, Mapping) or not item for item in value):
                 raise _bad_input(field, "has an entry with no details in it", hint)
+
+    if operation == "golf-bag-gap":
+        clubs = payload["clubs"]
+        if len(clubs) > 14:
+            raise _bad_input("clubs", "has more than 14 entries", "Pass 1 to 14 clubs.")
+        names: set[str] = set()
+        for index, club in enumerate(clubs):
+            name = club.get("name")
+            if not isinstance(name, str) or not name.strip():
+                raise _bad_input(f"clubs[{index}].name", "is empty", "Name each club.")
+            identity = name.strip().casefold()
+            if identity in names:
+                raise _bad_input(
+                    f"clubs[{index}].name", "duplicates an earlier club",
+                    "Use unique names, ignoring letter case and surrounding spaces.",
+                )
+            names.add(identity)
 
 
 def _normalise_base_url(value: str) -> str:
@@ -546,12 +569,14 @@ def nymrel_evaluate_fantasy_trade(
         "destructiveHint": False,
     }
 )
-def nymrel_golf_bag_gap(clubs: list[GolfClub]) -> dict[str, Any]:
+def nymrel_golf_bag_gap(clubs: GolfClubs) -> dict[str, Any]:
     """Analyse carry-distance gaps for a structured list of golf clubs.
 
     Every club needs a ``name`` and its measured ``carry_distance_yards``;
-    ``loft_degrees`` is optional. Pass 1 to 14 clubs with unique names. The
-    upstream rejects any other key, so send only these three.
+    ``loft_degrees`` is optional. Pass 1 to 14 clubs with non-blank names,
+    unique ignoring letter case and surrounding spaces. The upstream rejects
+    any other key, so send only these three. Invalid counts or names are
+    rejected before contacting the upstream; correct them instead of retrying.
     """
     return _call_tool(
         "golf-bag-gap",

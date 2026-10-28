@@ -5,7 +5,7 @@ import json
 from functools import wraps
 from typing import Annotated, Literal
 
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools import ToolResult
 from mcp.types import CallToolResult
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, TypeAdapter, ValidationError
 

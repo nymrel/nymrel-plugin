@@ -29,6 +29,46 @@ def _html_404() -> FakeResponse:
 
 
 class ClientTests(unittest.TestCase):
+    def test_bad_golf_bags_are_rejected_before_network_with_located_errors(self):
+        cases = [
+            ([], "clubs"),
+            ([{"name": str(i), "carry_distance_yards": 150} for i in range(15)], "clubs"),
+            ([{"name": " ", "carry_distance_yards": 150}], "clubs[0].name"),
+            ([{"carry_distance_yards": 150}], "clubs[0].name"),
+            ([{"name": "7i", "carry_distance_yards": 150}] * 2, "clubs[1].name"),
+            ([{"name": "Driver", "carry_distance_yards": 250},
+              {"name": " driver ", "carry_distance_yards": 249}], "clubs[1].name"),
+        ]
+        for clubs, field in cases:
+            with self.subTest(clubs=clubs):
+                calls = []
+                client = server.NymrelPublicApiClient(
+                    base_url="https://api.example.test/api/v1/tools",
+                    requester=lambda *args, **kwargs: calls.append((args, kwargs)),
+                )
+                with self.assertRaises(server.NymrelPublicApiError) as caught:
+                    client.call("golf-bag-gap", {"clubs": clubs})
+                self.assertEqual(caught.exception.code, "INVALID_INPUT")
+                self.assertFalse(caught.exception.retryable)
+                self.assertIn(field, caught.exception.message)
+                self.assertEqual(calls, [])
+
+    def test_golf_boundary_sizes_preserve_supplied_payload(self):
+        for count in (1, 14):
+            with self.subTest(count=count):
+                clubs = [{"name": f"club {i}", "carry_distance_yards": 150 + i}
+                         for i in range(count)]
+                calls = []
+                def requester(*args, **kwargs):
+                    calls.append(kwargs["json"])
+                    return FakeResponse(200, {"average_gap_yards": 1,
+                                               "problem_gaps": [], "recommendations": []})
+                client = server.NymrelPublicApiClient(
+                    base_url="https://api.example.test/api/v1/tools", requester=requester,
+                )
+                client.call("golf-bag-gap", {"clubs": clubs})
+                self.assertEqual(calls, [{"clubs": clubs}])
+
     def test_forwards_exact_operation_payload_and_bearer(self):
         calls = []
 

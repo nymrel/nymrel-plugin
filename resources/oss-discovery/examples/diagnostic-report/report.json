@@ -1,0 +1,71 @@
+{
+  "schema": "nymrel-mcp-preflight/0.1",
+  "mode": "offline-static-triage",
+  "assessment": "needs-investigation",
+  "servers": [
+    {
+      "id": "server-1",
+      "launch_kind": "package-runner",
+      "local_runtime_lookup": "not-requested"
+    }
+  ],
+  "findings": [
+    {
+      "code": "package-resolution",
+      "scope": "server-1",
+      "severity": "warning",
+      "title": "Package resolution may require setup and network access",
+      "detail": "The launch uses a package runner, which can resolve or install code depending on its cache and options. Server-internal installs are not determined by this scan.",
+      "next_step": "Check the runner's cache, package source, exact version, and documented setup/egress requirements in the target environment."
+    },
+    {
+      "code": "package-pin-unconfirmed",
+      "scope": "server-1",
+      "severity": "warning",
+      "title": "An exact package pin was not confirmed",
+      "detail": "The limited direct-runner syntax check did not recognize an exact version. This is not proof that the package is unpinned.",
+      "next_step": "Review the launch syntax and lock/install procedure against the runner's documentation."
+    },
+    {
+      "code": "runtime-log-signal",
+      "scope": "supplied-log",
+      "severity": "warning",
+      "title": "Log mentions a missing runtime",
+      "detail": "The supplied text contains a missing-executable signal. It may describe a nested subprocess rather than the main server.",
+      "next_step": "Check which stage requested the executable and verify that stage's runtime requirements on the intended host."
+    },
+    {
+      "code": "timeout-stage-unknown",
+      "scope": "supplied-log",
+      "severity": "warning",
+      "title": "A timeout does not locate the failing stage",
+      "detail": "The supplied text mentions a timeout; it does not establish whether transport, HTTP, parsing, installation, or a subprocess stalled.",
+      "next_step": "Collect a minimized timeline for startup, network request, parsing/subprocess, and tool response before changing the timeout."
+    },
+    {
+      "code": "installer-protocol-log-signal",
+      "scope": "supplied-log",
+      "severity": "warning",
+      "title": "Installer and protocol-error signals occur together",
+      "detail": "The supplied text contains both installer messages and protocol/JSON errors. This is a hypothesis: combined stdout/stderr logs do not prove stream contamination.",
+      "next_step": "Verify which stream carried installer output and whether dependency installation occurred during startup or the tool call."
+    },
+    {
+      "code": "registry-egress-log-signal",
+      "scope": "supplied-log",
+      "severity": "warning",
+      "title": "Registry and network-denial signals occur together",
+      "detail": "A package-registry reference and a denial signal appear in supplied text. Their causal relationship and current reachability are not verified.",
+      "next_step": "Check whether documented setup or a nested tool step needs registry access; confirm the existing policy with its owner."
+    }
+  ],
+  "limits": [
+    "This is static triage of supplied files, not a connection or security test.",
+    "No server, command, package, or MCP tool is executed; no network is used.",
+    "Rules can miss problems and can match unrelated messages in combined logs.",
+    "No matched rule means not verified, not readiness or safety.",
+    "Local runtime checks, when requested, inspect this host's PATH only; configured paths and environments are not tested.",
+    "Reports omit raw names, arguments, environment values, endpoints, paths, and log excerpts. The original inputs remain local."
+  ],
+  "exit_zero_means": "Analysis completed; it is not a readiness, safety, or connection result."
+}

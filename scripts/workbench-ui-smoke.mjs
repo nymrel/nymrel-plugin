@@ -13,13 +13,13 @@ if (screenshotDirectory) await mkdir(screenshotDirectory, {recursive:true});
 // upstream main 814303a9ef52501e477a5ee10517b87debf4cf75.
 const acceptedClipPlatforms = new Set(["tiktok", "instagram_reels", "youtube_shorts", "x"]);
 for (const notice of [
-  "@modelcontextprotocol/ext-apps 1.7.5 (MIT)",
-  "@modelcontextprotocol/sdk 1.32.0 (MIT)",
-  "zod 4.6.5 (MIT)",
-  "zod-to-json-schema 3.25.2 (ISC)",
+  "@modelcontextprotocol/ext-apps 2.0.3 (MIT)",
+  "@modelcontextprotocol/client 2.4.0 (Apache-2.0)",
+  "@modelcontextprotocol/core 2.4.0 (Apache-2.0)",
+  "zod 4.6.7 (MIT)",
   "Permission is hereby granted, free of charge",
   "The above copyright notice and this permission notice shall be included",
-  "ISC License",
+  "Apache License",
 ]) assert.ok(asset.includes(notice), `generated asset must retain bundled license text: ${notice}`);
 const hostPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Synthetic host</title></head>
 <body style="margin:0"><iframe id="workbench-frame" title="Nymrel tool workbench" src="/workbench.html" style="border:0;width:100vw;height:100vh"></iframe>

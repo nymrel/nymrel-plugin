@@ -1,0 +1,47 @@
+{
+  "schema": "nymrel-mcp-preflight/0.1",
+  "mode": "offline-static-triage",
+  "assessment": "needs-investigation",
+  "servers": [
+    {
+      "id": "server-1",
+      "launch_kind": "remote-endpoint",
+      "local_runtime_lookup": "not-requested"
+    }
+  ],
+  "findings": [
+    {
+      "code": "certificate-log-signal",
+      "scope": "supplied-log",
+      "severity": "warning",
+      "title": "Log contains a certificate-verification failure",
+      "detail": "A known certificate error string appears in the supplied text; its origin and current status are not verified.",
+      "next_step": "Ask the responsible owner to check the approved proxy and trusted CA chain. Do not bypass verification based on this report."
+    },
+    {
+      "code": "proxy-log-signal",
+      "scope": "supplied-log",
+      "severity": "warning",
+      "title": "Log contains a proxy-denial signal",
+      "detail": "The supplied text includes a possible proxy denial. Combined logs can contain unrelated events.",
+      "next_step": "Check the intended destination and the existing network policy through the authorized owner; no policy change is implied."
+    },
+    {
+      "code": "registry-egress-log-signal",
+      "scope": "supplied-log",
+      "severity": "warning",
+      "title": "Registry and network-denial signals occur together",
+      "detail": "A package-registry reference and a denial signal appear in supplied text. Their causal relationship and current reachability are not verified.",
+      "next_step": "Check whether documented setup or a nested tool step needs registry access; confirm the existing policy with its owner."
+    }
+  ],
+  "limits": [
+    "This is static triage of supplied files, not a connection or security test.",
+    "No server, command, package, or MCP tool is executed; no network is used.",
+    "Rules can miss problems and can match unrelated messages in combined logs.",
+    "No matched rule means not verified, not readiness or safety.",
+    "Local runtime checks, when requested, inspect this host's PATH only; configured paths and environments are not tested.",
+    "Reports omit raw names, arguments, environment values, endpoints, paths, and log excerpts. The original inputs remain local."
+  ],
+  "exit_zero_means": "Analysis completed; it is not a readiness, safety, or connection result."
+}

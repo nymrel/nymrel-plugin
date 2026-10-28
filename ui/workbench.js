@@ -560,7 +560,7 @@ async function runTool(tool) {
     }
   } catch (error) {
     if (state.requestIds[tool] !== requestId) return;
-    requestFailed(tool, error?.code === "RequestTimeout" || error?.code === -32001 ? "Nymrel did not respond in time." : "The host could not complete the Nymrel request. Check the connection and try again.");
+    requestFailed(tool, error?.code === "REQUEST_TIMEOUT" || error?.code === "RequestTimeout" || error?.code === -32001 ? "Nymrel did not respond in time." : "The host could not complete the Nymrel request. Check the connection and try again.");
   } finally {
     if (state.requestIds[tool] === requestId) {
       submit.disabled = !state.hostCapabilities?.serverTools;

@@ -1,6 +1,7 @@
 """Dormant same-app Remote reader. No shared credential or arbitrary proxy."""
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from contextvars import ContextVar
@@ -15,7 +16,7 @@ from fastmcp.server.auth import RemoteAuthProvider
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from fastmcp.server.dependencies import get_access_token
 from fastmcp.tools import Tool
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools import ToolResult
 from mcp.types import CallToolResult, TextContent
 
 import nymrel_private_handoff as handoff
@@ -26,6 +27,7 @@ JWKS_ENV = "NYMREL_REMOTE_READ_OAUTH_JWKS_URL"
 RESOURCE = "https://mcp.nymrel.com/mcp"
 METADATA = "https://mcp.nymrel.com/.well-known/oauth-protected-resource/mcp"
 BACKEND = "https://nymrel-remote-production.up.railway.app/nymrel/plugin/readonly/mcp"
+REQUEST_TIMEOUT_SECONDS = 35.0
 SCOPES = ["devices:read", "tools:read"]
 CATALOG = json.loads(Path(__file__).with_name("remote-read-tools.json").read_text())
 SCHEMAS = {tool["name"]: tool["inputSchema"] for tool in CATALOG}
@@ -107,17 +109,20 @@ async def proxy_read(name, arguments, bearer):
                 "io.modelcontextprotocol/clientCapabilities": {},
                 "io.modelcontextprotocol/clientInfo": {"name": "nymrel-hosted-mcp", "version": "1.0.0"}}}}
     try:
-        async with httpx.AsyncClient(timeout=35, follow_redirects=False, trust_env=False) as client:
-            async with client.stream("POST", BACKEND, headers=headers, json=body) as response:
-                if response.status_code in {401, 403}:
-                    return auth_failure()
-                if response.status_code != 200:
-                    return failure()
-                chunks = bytearray()
-                async for chunk in response.aiter_bytes():
-                    chunks.extend(chunk)
-                    if len(chunks) > 2_097_152:
+        # HTTPX limits socket inactivity; a trickling response can outlive that
+        # timeout indefinitely. Bound the whole exchange without replaying it.
+        async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
+            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS, follow_redirects=False, trust_env=False) as client:
+                async with client.stream("POST", BACKEND, headers=headers, json=body) as response:
+                    if response.status_code in {401, 403}:
+                        return auth_failure()
+                    if response.status_code != 200:
                         return failure()
+                    chunks = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        chunks.extend(chunk)
+                        if len(chunks) > 2_097_152:
+                            return failure()
         payload = json.loads(chunks)
         if not isinstance(payload, dict) or payload.get("jsonrpc") != "2.0" or payload.get("id") != request_id or "error" in payload:
             return failure()
@@ -144,7 +149,7 @@ async def proxy_read(name, arguments, bearer):
             }}
             parsed.content.append(TextContent(type="text", text="Retrieve this pending read with nymrel_remote_get_read_result and the returned call ID; do not resubmit the original read."))
         return parsed
-    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+    except (httpx.HTTPError, TimeoutError, ValueError, KeyError, TypeError):
         return failure()
 
 

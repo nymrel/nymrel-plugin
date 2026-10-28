@@ -1,0 +1,39 @@
+{
+  "schema": "nymrel-mcp-preflight/0.1",
+  "mode": "offline-static-triage",
+  "assessment": "needs-investigation",
+  "servers": [
+    {
+      "id": "server-1",
+      "launch_kind": "local-command",
+      "local_runtime_lookup": "not-requested"
+    }
+  ],
+  "findings": [
+    {
+      "code": "runtime-log-signal",
+      "scope": "supplied-log",
+      "severity": "warning",
+      "title": "Log mentions a missing runtime",
+      "detail": "The supplied text contains a missing-executable signal. It may describe a nested subprocess rather than the main server.",
+      "next_step": "Check which stage requested the executable and verify that stage's runtime requirements on the intended host."
+    },
+    {
+      "code": "timeout-stage-unknown",
+      "scope": "supplied-log",
+      "severity": "warning",
+      "title": "A timeout does not locate the failing stage",
+      "detail": "The supplied text mentions a timeout; it does not establish whether transport, HTTP, parsing, installation, or a subprocess stalled.",
+      "next_step": "Collect a minimized timeline for startup, network request, parsing/subprocess, and tool response before changing the timeout."
+    }
+  ],
+  "limits": [
+    "This is static triage of supplied files, not a connection or security test.",
+    "No server, command, package, or MCP tool is executed; no network is used.",
+    "Rules can miss problems and can match unrelated messages in combined logs.",
+    "No matched rule means not verified, not readiness or safety.",
+    "Local runtime checks, when requested, inspect this host's PATH only; configured paths and environments are not tested.",
+    "Reports omit raw names, arguments, environment values, endpoints, paths, and log excerpts. The original inputs remain local."
+  ],
+  "exit_zero_means": "Analysis completed; it is not a readiness, safety, or connection result."
+}
