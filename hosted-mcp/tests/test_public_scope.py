@@ -217,7 +217,7 @@ class PublicScopeTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(RuntimeError):
             await public_scope.build_public_registry(source)
         tool = (await index.server.mcp.get_tool("nymrel_audit_website")).model_copy(deep=True)
-        tool.annotations.readOnlyHint = False
+        tool.annotations.read_only_hint = False
         source.get_tool.return_value = tool
         with self.assertRaises(RuntimeError):
             await public_scope.build_public_registry(source)

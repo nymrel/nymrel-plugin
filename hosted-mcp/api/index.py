@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from typing import Annotated, Literal  # noqa: E402
 
 from pydantic import Field  # noqa: E402
-from mcp.types import ListToolsRequest  # noqa: E402
+from mcp.types import PaginatedRequestParams  # noqa: E402
 
 import nymrel_public_mcp_server as server  # noqa: E402
 import nymrel_private_handoff as private_handoff  # noqa: E402
@@ -32,6 +32,7 @@ import nymrel_remote_read as remote_read  # noqa: E402
 import audit_ui  # noqa: E402
 import workbench_ui  # noqa: E402
 import public_results  # noqa: E402
+import security_wire
 import public_scope  # noqa: E402
 
 from starlette.applications import Starlette  # noqa: E402
@@ -235,25 +236,24 @@ def _tool_security_schemes(tool: Any) -> list[dict[str, Any]]:
     raise RuntimeError(f"Tool {tool.name} has no reviewed authentication policy.")
 
 
-async def _list_tools_with_explicit_security(request: ListToolsRequest):
+async def _list_tools_with_explicit_security(ctx, params: PaginatedRequestParams | None):
     """Publish OpenAI's top-level auth field plus the legacy `_meta` mirror.
 
-    MCP SDK 1.27 accepts extension fields but FastMCP 3.2.3 does not populate
-    ``securitySchemes`` itself. Registering this bounded list-tools adapter
-    keeps the real wire descriptor compliant without rewriting response bytes.
+    FastMCP 4 and MCP SDK 2 sieve unsupported top-level extension fields.
+    This handler validates and mirrors the policy before security_wire restores
+    its top-level representation after SDK serialization.
     """
-    result = await server.mcp._list_tools_mcp(request)
+    result = await server.mcp._on_list_tools(ctx, params)
     for tool in result.tools:
         schemes = _tool_security_schemes(tool)
         tool.meta = {**(tool.meta or {}), "securitySchemes": schemes}
-        setattr(tool, "securitySchemes", schemes)
     return result
 
 
-# Replace FastMCP's registered low-level list handler before the HTTP app is
-# built. The SDK's Tool model explicitly allows extension fields, so the field
-# survives normal typed serialization and cache refreshes.
-server.mcp._mcp_server.list_tools()(_list_tools_with_explicit_security)
+# Register the validated discovery handler before the HTTP app is built.
+server.mcp._mcp_server.add_request_handler(
+    "tools/list", PaginatedRequestParams, _list_tools_with_explicit_security
+)
 
 
 # --- ASGI plumbing ----------------------------------------------------------
@@ -581,6 +581,9 @@ async def _dispatch_app(
                              headers=((b"www-authenticate", challenge.encode("ascii")),))
             return
         receive = _replay(body)
+        request_id = security_wire.list_request(body)
+        if request_id is not None:
+            send = security_wire.wire_sender(send, request_id)
 
     await _ensure_lifespan()
     scope = dict(scope, path=MCP_PATH, raw_path=MCP_PATH.encode("ascii"))

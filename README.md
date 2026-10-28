@@ -1,5 +1,17 @@
 # Nymrel universal plugin
 
+## Public workflow resources
+
+The [Nymrel Workflow Starter Kit](resources/workflow-starter-kit/README.md)
+contains two standalone skills—Evidence Workspace and Capability Adoption—and
+a Material Change Digest template. It includes offline code, synthetic examples,
+and an explanation of how we use each workflow. This source preview works
+independently of the hosted Nymrel connection; see its release notes for checks
+and publication boundaries.
+
+[Download the standalone source kit](resources/releases/nymrel-workflow-starter-kit-0.1.0.zip)
+([SHA-256](resources/releases/nymrel-workflow-starter-kit-0.1.0.zip.sha256)).
+
 One installable Nymrel front door for ChatGPT and Codex, with a compatible
 Claude package and one hosted MCP service.
 

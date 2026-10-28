@@ -145,7 +145,7 @@ export function createNymrelMcpServer(): McpServer {
         "openai/toolInvocation/invoked": "Nymrel report shown.",
       },
     },
-    async (input) => {
+    async (input: unknown) => {
       const parsed = auditReportSchema.safeParse(input);
       if (!parsed.success || !verifyAuditReport(parsed.data)) {
         return {

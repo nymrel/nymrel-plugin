@@ -1,4 +1,26 @@
 import { App, PostMessageTransport } from "@modelcontextprotocol/ext-apps";
+import { z } from "zod";
+
+// Mirror hosted-mcp/api/public_results.py without coercing measurements or
+// availability. Extra evidence remains forward compatible.
+const evidenceObject = (shape) => z.object(shape).passthrough();
+const score = z.number().min(0).max(100);
+const strings = z.array(z.string());
+const RESULT_SCHEMAS = {
+  website: evidenceObject({ score, grade: z.string(), ai_discoverability_status: z.string(), schema_detected: strings, recommendations: strings, full_report_url: z.string() }),
+  domains: evidenceObject({ suggestions: z.array(evidenceObject({
+    domain: z.string(), available: z.boolean(), availability_checked: z.boolean(), brandability_score: score,
+    brandability_factors: evidenceObject({ label_length: z.number().int(), contains_digit: z.boolean(), contains_hyphen: z.boolean(), contains_vowel: z.boolean() }),
+  })) }),
+  golf: evidenceObject({ average_gap_yards: z.number().min(0), problem_gaps: strings, recommendations: strings }),
+  clip: evidenceObject({
+    target_platform: z.enum(["tiktok", "instagram_reels", "youtube_shorts", "x"]), hook_score: score, hook_strength: z.string(), suggested_edits: strings,
+    signals: evidenceObject({
+      opening_word_count: z.number().int().min(0), opens_with_hook_pattern: z.boolean(), addresses_viewer: z.boolean(), has_curiosity_signal: z.boolean(), opening_contains_number: z.boolean(),
+      total_word_count: z.number().int().min(0), platform_word_range: z.array(z.number().int()).length(2), total_word_count_in_platform_range: z.boolean(),
+    }),
+  }),
+};
 
 const TOOL_INFO = {
   website: {
@@ -29,6 +51,7 @@ const TOOL_INFO = {
 const STORAGE_KEY = "nymrel-workbench-preferences-v1";
 const TOOL_IDS = new Set(Object.keys(TOOL_INFO));
 const PLATFORM_IDS = new Set(["tiktok", "instagram_reels", "youtube_shorts"]);
+const PLATFORM_LABELS = { tiktok: "TikTok", instagram_reels: "Instagram Reels", youtube_shorts: "YouTube Shorts", x: "X" };
 const app = new App({ name: "Nymrel Public Workbench", version: "1.0.0" }, {});
 const state = {
   connected: false,
@@ -36,6 +59,8 @@ const state = {
   active: "website",
   deepLink: null,
   results: Object.create(null),
+  attempts: Object.create(null),
+  shares: Object.create(null),
   requestIds: Object.create(null),
   preferences: loadPreferences(),
   hostContext: null,
@@ -67,8 +92,9 @@ function loadPreferences() {
 function savePreferences() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.preferences));
+    el("preference-status").textContent = "";
   } catch {
-    setStatus(state.active, "Browser storage is unavailable; this preference will last until you close this view.", "error");
+    el("preference-status").textContent = "Browser storage is unavailable; these preferences will last until you close this view.";
   }
 }
 
@@ -91,13 +117,13 @@ function safeString(value, fallback = "Not provided") {
 }
 
 function resultData(result) {
-  if (result && typeof result.structuredContent === "object" && result.structuredContent !== null) return result.structuredContent;
-  for (const item of result?.content || []) {
+  if (result && Object.prototype.hasOwnProperty.call(result, "structuredContent")) return result.structuredContent;
+  for (const item of Array.isArray(result?.content) ? result.content : []) {
     if (item?.type !== "text" || typeof item.text !== "string") continue;
     try {
       const parsed = JSON.parse(item.text);
-      if (parsed && typeof parsed === "object") return parsed;
-    } catch { /* plain text remains available in renderError */ }
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+    } catch { /* Plain text is not a native report. */ }
   }
   return null;
 }
@@ -207,16 +233,6 @@ function isErrorPayload(payload) {
   return payload?.status === "error" || Boolean(payload?.error);
 }
 
-function renderError(parent, result, payload) {
-  const detail = payload?.error;
-  const message = safeString(detail?.message, "Nymrel could not complete this request.");
-  parent.append(node("p", "notice", message));
-  if (!payload && Array.isArray(result?.content)) {
-    const text = result.content.filter((item) => item?.type === "text").map((item) => item.text).join("\n");
-    if (text) parent.append(node("p", "help", text));
-  }
-}
-
 function renderWebsite(parent, data) {
   const grid = node("div", "result-grid");
   addMetric(grid, "Score", Number.isFinite(data.score) ? `${data.score} / 100` : "Unknown");
@@ -232,6 +248,7 @@ function renderWebsite(parent, data) {
 function renderDomains(parent, data) {
   const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
   parent.append(node("p", "help", `${suggestions.length} suggestion${suggestions.length === 1 ? "" : "s"}. Availability is confirmed only where the result says it was checked.`));
+  if (!suggestions.length) parent.append(node("p", "notice", "No domain ideas were returned. Try a more specific word or a different set of domain endings."));
   const list = node("ul");
   for (const item of suggestions) {
     const availability = item?.availability_checked === true
@@ -245,7 +262,8 @@ function renderDomains(parent, data) {
   parent.append(list);
 }
 
-function renderGolf(parent, data) {
+function renderGolf(parent, data, args) {
+  if (args.clubs.length < 2) parent.append(node("p", "notice", "One club was submitted. Add another measured carry distance to compare spacing between clubs."));
   const grid = node("div", "result-grid");
   addMetric(grid, "Average gap", Number.isFinite(data.average_gap_yards) ? `${data.average_gap_yards} yd` : "Unknown");
   addMetric(grid, "Problem gaps", Array.isArray(data.problem_gaps) ? data.problem_gaps.length : 0);
@@ -292,42 +310,110 @@ function renderStoredResult(tool) {
   }
   resultBox.replaceChildren();
   resultBox.hidden = false;
+  resultBox.dataset.tool = tool;
   const head = node("div", "result-title");
-  head.append(node("h2", "", entry.error ? "Request needs attention" : `${TOOL_INFO[tool].title} result`));
+  const title = node("h2");
+  title.id = "result-heading";
+  title.dataset.testid = "result-title";
+  head.append(title);
   const useButton = node("button", "quiet", "Use result in conversation");
   const updateCapability = state.hostCapabilities?.updateModelContext;
   const supportsTextContext = Boolean(updateCapability && Object.prototype.hasOwnProperty.call(updateCapability, "text"));
-  useButton.disabled = !supportsTextContext || entry.error;
+  useButton.disabled = !supportsTextContext;
   useButton.title = supportsTextContext ? "Add a short summary to the conversation after you choose." : "This host does not support adding app results to the conversation.";
   useButton.addEventListener("click", () => useResultInConversation(tool, entry));
   head.append(useButton);
   resultBox.append(head);
-  if (entry.error) renderError(resultBox, entry.result, entry.data);
-  else if (entry.data && typeof entry.data === "object") {
-    if (tool === "website") renderWebsite(resultBox, entry.data);
-    if (tool === "domains") renderDomains(resultBox, entry.data);
-    if (tool === "golf") renderGolf(resultBox, entry.data);
-    if (tool === "clip") renderClip(resultBox, entry.data);
-  } else renderError(resultBox, entry.result, null);
+  const shareStatus = node("p", "help");
+  shareStatus.dataset.testid = "share-status";
+  shareStatus.setAttribute("role", "status");
+  resultBox.append(shareStatus);
+  const provenance = node("p", "help result-provenance");
+  provenance.dataset.testid = "result-provenance";
+  provenance.setAttribute("role", "status");
+  resultBox.append(provenance);
+  const inputs = node("details", "result-inputs");
+  inputs.append(node("summary", "", "Inputs used for this result"));
+  inputs.append(node("pre", "", submittedInputs(tool, entry.args)));
+  resultBox.append(inputs);
+  if (tool === "website") renderWebsite(resultBox, entry.data);
+  if (tool === "domains") renderDomains(resultBox, entry.data);
+  if (tool === "golf") renderGolf(resultBox, entry.data, entry.args);
+  if (tool === "clip") renderClip(resultBox, entry.data);
   const evidence = node("pre");
   evidence.dataset.testid = "evidence";
   evidence.textContent = JSON.stringify(entry.data || entry.result, null, 2);
   evidence.hidden = !state.preferences.showEvidence;
   resultBox.append(evidence);
+  updateResultProvenance(tool);
+  updateShareStatus(tool);
+}
+
+function updateShareStatus(tool) {
+  if (resultBox.hidden || resultBox.dataset.tool !== tool) return;
+  const share = state.shares[tool];
+  const status = resultBox.querySelector('[data-testid="share-status"]');
+  const previous = share?.entry !== state.results[tool];
+  status.textContent = share ? `${previous ? "Previous result: " : ""}${share.message}` : "";
+  status.dataset.kind = share?.kind || "";
+  const capability = state.hostCapabilities?.updateModelContext;
+  const supported = Boolean(capability && Object.prototype.hasOwnProperty.call(capability, "text"));
+  resultBox.querySelector(".result-title button").disabled = !supported || Boolean(share?.pending);
+}
+
+function inputsChanged(tool, entry) {
+  try { return JSON.stringify(formArguments(tool)) !== JSON.stringify(entry.args); }
+  catch { return true; }
+}
+
+function submittedInputs(tool, args) {
+  if (tool === "website") return `Public page: ${args.url}`;
+  if (tool === "domains") return `Name idea: ${args.keyword_or_concept}\nDomain endings: ${args.tlds?.join(", ") || "Tool defaults"}`;
+  if (tool === "golf") return args.clubs.map((club) => `${club.name}: ${club.carry_distance_yards} yards${club.loft_degrees === undefined ? "" : `, loft ${club.loft_degrees}°`}`).join("\n");
+  return `Target platform: ${PLATFORM_LABELS[args.target_platform]}\nSpoken words: ${args.transcript_text}`;
+}
+
+function isPreviousResult(tool, entry) {
+  return state.attempts[tool]?.kind !== "success" || inputsChanged(tool, entry);
+}
+
+function updateResultProvenance(tool) {
+  const entry = state.results[tool];
+  if (!entry || resultBox.hidden || resultBox.dataset.tool !== tool) return;
+  const previous = isPreviousResult(tool, entry);
+  resultBox.querySelector('[data-testid="result-title"]').textContent = previous ? `${TOOL_INFO[tool].title}: previous successful result` : `${TOOL_INFO[tool].title} result`;
+  const message = inputsChanged(tool, entry)
+    ? "Inputs have changed. This result uses the submitted inputs shown below; run the tool again for your current inputs."
+    : state.attempts[tool]?.kind === "pending" ? "A new request is running. Your previous successful result stays here until a new result is ready."
+    : state.attempts[tool]?.kind === "error" ? "The latest request failed. Your previous successful result is still available with its submitted inputs."
+    : "This result uses your current inputs, shown below.";
+  resultBox.querySelector('[data-testid="result-provenance"]').textContent = message;
+  resultBox.querySelector(".result-title button").textContent = previous ? "Use previous result in conversation" : "Use result in conversation";
 }
 
 async function useResultInConversation(tool, entry) {
-  if (!entry?.data || !state.hostCapabilities?.updateModelContext?.text) return;
+  const updateCapability = state.hostCapabilities?.updateModelContext;
+  if (!entry?.data || !updateCapability || !Object.prototype.hasOwnProperty.call(updateCapability, "text")) return;
+  if (state.shares[tool]?.pending) return;
   const button = resultBox.querySelector(".result-title button");
-  if (button) button.disabled = true;
-  setStatus(tool, "Adding the result summary to the conversation…");
+  const restoreFocus = button === document.activeElement;
+  const share = {entry, pending:true, message:"Adding the result summary to the conversation…", kind:""};
+  state.shares[tool] = share;
+  updateShareStatus(tool);
   try {
-    await app.updateModelContext({ content: [{ type: "text", text: conversationSummary(tool, entry.data) }] }, { timeout: 8000 });
-    setStatus(tool, "The result summary is now in the conversation.", "success");
+    const context = `${isPreviousResult(tool, entry) ? "Previous successful result. " : ""}${conversationSummary(tool, entry.data)}\nInputs used for this result:\n${submittedInputs(tool, entry.args)}`;
+    await app.updateModelContext({ content: [{ type: "text", text: context }] }, { timeout: 8000 });
+    share.message = "The result summary is now in the conversation.";
+    share.kind = "success";
   } catch {
-    setStatus(tool, "This host could not add the result summary. The result is still shown here.", "error");
+    share.message = "This host could not add the result summary. The result is still shown here; you can try again.";
+    share.kind = "error";
   } finally {
-    renderStoredResult(tool);
+    share.pending = false;
+    updateShareStatus(tool);
+    if (button?.isConnected) {
+      if (restoreFocus && document.activeElement === document.body) button.focus();
+    }
   }
 }
 
@@ -344,18 +430,28 @@ function addClubRow(values = {}) {
   const carry = document.createElement("input");
   carry.type = "number"; carry.className = "club-carry"; carry.min = "1"; carry.max = "400"; carry.step = "1"; carry.inputMode = "numeric"; carry.placeholder = "165"; carry.setAttribute("aria-label", `Club ${index} carry distance in yards`); carry.value = values.carry_distance_yards ?? "";
   const loft = document.createElement("input");
-  loft.type = "number"; loft.className = "club-loft loft-field"; loft.min = "0"; loft.max = "80"; loft.step = "0.5"; loft.placeholder = "Optional loft"; loft.setAttribute("aria-label", `Club ${index} loft in degrees`); loft.value = values.loft_degrees ?? "";
+  loft.type = "number"; loft.className = "club-loft loft-field"; loft.min = "0"; loft.max = "80"; loft.step = "0.5"; loft.placeholder = "Loft (°)"; loft.setAttribute("aria-label", `Club ${index} optional loft in degrees`); loft.value = values.loft_degrees ?? "";
   const remove = node("button", "quiet remove-club remove", "×");
-  remove.type = "button"; remove.setAttribute("aria-label", `Remove club ${index}`); remove.addEventListener("click", () => { if (clubCount() > 1) { row.remove(); refreshClubRows(); } });
+  remove.type = "button"; remove.setAttribute("aria-label", `Remove club ${index}`);
+  remove.addEventListener("click", () => {
+    if (clubCount() <= 1) return;
+    const restoreFocus = row.contains(document.activeElement);
+    const nextRow = row.nextElementSibling || row.previousElementSibling;
+    row.remove();
+    refreshClubRows();
+    updateResultProvenance("golf");
+    if (restoreFocus) nextRow?.querySelector(".club-name").focus();
+  });
   row.append(name, carry, loft, remove);
   el("club-list").append(row);
   refreshClubRows();
+  updateResultProvenance("golf");
 }
 
 function refreshClubRows() {
   [...el("club-list").querySelectorAll(".club-row")].forEach((row, index) => {
     for (const input of row.querySelectorAll("input")) {
-      const label = input.classList.contains("club-name") ? "name" : input.classList.contains("club-carry") ? "carry distance in yards" : "loft in degrees";
+      const label = input.classList.contains("club-name") ? "name" : input.classList.contains("club-carry") ? "carry distance in yards" : "optional loft in degrees";
       input.setAttribute("aria-label", `Club ${index + 1} ${label}`);
     }
     row.querySelector("button").setAttribute("aria-label", `Remove club ${index + 1}`);
@@ -365,16 +461,29 @@ function refreshClubRows() {
   document.querySelectorAll(".remove-club").forEach((button) => { button.disabled = !state.connected || clubCount() <= 1; });
 }
 
+function invalidField(field, message) {
+  const error = new Error(message);
+  error.field = field;
+  throw error;
+}
+
+function clearFieldError(field, tool) {
+  field.removeAttribute("aria-invalid");
+  const descriptions = (field.getAttribute("aria-describedby") || "").split(/\s+/).filter((id) => id && id !== `status-${tool}`);
+  if (descriptions.length) field.setAttribute("aria-describedby", descriptions.join(" "));
+  else field.removeAttribute("aria-describedby");
+}
+
 function readGolfForm() {
   const clubs = [...el("club-list").querySelectorAll(".club-row")].map((row, index) => {
     const name = row.querySelector(".club-name").value.trim();
     const carryRaw = row.querySelector(".club-carry").value;
     const loftRaw = row.querySelector(".club-loft").value;
-    if (!name) throw new Error(`Enter a name for club ${index + 1}.`);
-    if (!carryRaw || !Number.isInteger(Number(carryRaw)) || Number(carryRaw) < 1 || Number(carryRaw) > 400) throw new Error(`Enter a whole carry distance from 1 to 400 yards for club ${index + 1}.`);
+    if (!name) invalidField(row.querySelector(".club-name"), `Enter a name for club ${index + 1}.`);
+    if (!carryRaw || !Number.isInteger(Number(carryRaw)) || Number(carryRaw) < 1 || Number(carryRaw) > 400) invalidField(row.querySelector(".club-carry"), `Enter a whole carry distance from 1 to 400 yards for club ${index + 1}.`);
     const club = { name, carry_distance_yards: Number(carryRaw) };
     if (loftRaw !== "") {
-      if (!Number.isFinite(Number(loftRaw)) || Number(loftRaw) < 0 || Number(loftRaw) > 80) throw new Error(`Enter a loft from 0 to 80 degrees for club ${index + 1}, or leave it blank.`);
+      if (!Number.isFinite(Number(loftRaw)) || Number(loftRaw) < 0 || Number(loftRaw) > 80) invalidField(row.querySelector(".club-loft"), `Enter a loft from 0 to 80 degrees for club ${index + 1}, or leave it blank.`);
       club.loft_degrees = Number(loftRaw);
     }
     return club;
@@ -387,22 +496,22 @@ function formArguments(tool) {
   if (tool === "website") {
     const url = el("website-url").value.trim();
     let parsed;
-    try { parsed = new URL(url); } catch { throw new Error("Enter a full public web address, such as https://example.com."); }
-    if (!["http:", "https:"].includes(parsed.protocol) || !parsed.hostname) throw new Error("Use a full http:// or https:// web address.");
-    if (parsed.username || parsed.password) throw new Error("Use a public URL without embedded credentials.");
+    try { parsed = new URL(url); } catch { invalidField(el("website-url"), "Enter a full public web address, such as https://example.com."); }
+    if (!["http:", "https:"].includes(parsed.protocol) || !parsed.hostname) invalidField(el("website-url"), "Use a full http:// or https:// web address.");
+    if (parsed.username || parsed.password) invalidField(el("website-url"), "Use a public URL without embedded credentials.");
     return { url };
   }
   if (tool === "domains") {
     const keyword = el("domain-idea").value.trim();
-    if (!keyword) throw new Error("Enter a word or short idea for the domain name.");
+    if (!keyword) invalidField(el("domain-idea"), "Enter a word or short idea for the domain name.");
     const rawTlds = el("domain-tlds").value.trim();
     const tlds = rawTlds ? rawTlds.split(",").map((item) => item.trim().toLowerCase()) : [];
-    if (tlds.some((item) => !/^\.[a-z]{2,24}$/.test(item))) throw new Error("Enter domain endings like .com or .io, separated by commas.");
+    if (tlds.some((item) => !/^\.[a-z]{2,24}$/.test(item))) invalidField(el("domain-tlds"), "Enter domain endings like .com or .io, separated by commas.");
     return { keyword_or_concept: keyword, ...(tlds.length ? { tlds } : {}) };
   }
   if (tool === "golf") return readGolfForm();
   const transcript = el("clip-transcript").value.trim();
-  if (!transcript) throw new Error("Paste the words spoken in the clip.");
+  if (!transcript) invalidField(el("clip-transcript"), "Paste the words spoken in the clip.");
   return { transcript_text: transcript, target_platform: el("clip-platform").value };
 }
 
@@ -411,34 +520,71 @@ async function runTool(tool) {
     setStatus(tool, "This host has not enabled Nymrel tool calls.", "error");
     return;
   }
+  const form = el(`form-${tool}`);
+  const submit = form.querySelector(".submit-button");
+  if (submit.disabled) return;
+  for (const field of form.querySelectorAll('[aria-invalid="true"]')) clearFieldError(field, tool);
   let args;
   try { args = formArguments(tool); }
-  catch (error) { setStatus(tool, error.message, "error"); return; }
+  catch (error) {
+    setStatus(tool, error.message, "error");
+    if (error.field) {
+      error.field.setAttribute("aria-invalid", "true");
+      const describedBy = error.field.getAttribute("aria-describedby");
+      error.field.setAttribute("aria-describedby", [describedBy, `status-${tool}`].filter(Boolean).join(" "));
+      error.field.focus();
+    }
+    updateResultProvenance(tool);
+    return;
+  }
   const requestId = (state.requestIds[tool] || 0) + 1;
   state.requestIds[tool] = requestId;
-  const submit = el(`form-${tool}`).querySelector(".submit-button");
+  state.attempts[tool] = { kind: "pending" };
   submit.disabled = true;
+  form.setAttribute("aria-busy", "true");
   setStatus(tool, TOOL_INFO[tool].working);
+  updateResultProvenance(tool);
   try {
     const result = await app.callServerTool({ name: TOOL_INFO[tool].name, arguments: args }, { timeout: 30000, maxTotalTimeout: 30000 });
     if (state.requestIds[tool] !== requestId) return;
     const data = resultData(result);
-    state.results[tool] = { result, data, error: Boolean(result?.isError) || isErrorPayload(data) };
-    setStatus(tool, state.results[tool].error ? "Nymrel returned an error. Review the details below; you can correct the form and try again." : "Result ready. Nothing was changed outside this workspace.", state.results[tool].error ? "error" : "success");
-    if (state.active === tool) renderStoredResult(tool);
+    if (result?.isError || isErrorPayload(data)) {
+      requestFailed(tool, safeString(data?.error?.message, "Nymrel could not complete this request."));
+    } else if (!RESULT_SCHEMAS[tool].safeParse(data).success || (tool === "clip" && data.target_platform !== args.target_platform)) {
+      requestFailed(tool, "Nymrel returned an incomplete or invalid result.");
+    } else {
+      state.results[tool] = { result, data, args };
+      state.attempts[tool] = { kind: "success" };
+      setStatus(tool, inputsChanged(tool, state.results[tool]) ? "Result ready for the submitted inputs. Your current inputs have changed." : "Result ready. Nothing was changed outside this workspace.", "success");
+      if (state.active === tool) renderStoredResult(tool);
+    }
   } catch (error) {
     if (state.requestIds[tool] !== requestId) return;
-    state.results[tool] = { result: null, data: { error: { message: error?.code === "RequestTimeout" ? "Nymrel did not respond in time. You can try again." : "The host could not reach Nymrel. Check the connection and try again." } }, error: true };
-    setStatus(tool, "The request did not finish. You can try again when ready.", "error");
-    if (state.active === tool) renderStoredResult(tool);
+    requestFailed(tool, error?.code === "REQUEST_TIMEOUT" || error?.code === "RequestTimeout" || error?.code === -32001 ? "Nymrel did not respond in time." : "The host could not complete the Nymrel request. Check the connection and try again.");
   } finally {
-    if (state.requestIds[tool] === requestId) submit.disabled = !state.hostCapabilities?.serverTools;
+    if (state.requestIds[tool] === requestId) {
+      submit.disabled = !state.hostCapabilities?.serverTools;
+      form.setAttribute("aria-busy", "false");
+    }
   }
+}
+
+function requestFailed(tool, message) {
+  state.attempts[tool] = { kind: "error" };
+  setStatus(tool, `${message} ${state.results[tool] ? "Your previous successful result is still shown below. " : ""}You can try again.`, "error");
+  updateResultProvenance(tool);
 }
 
 function wireForms() {
   for (const tool of TOOL_IDS) {
-    el(`form-${tool}`).addEventListener("submit", (event) => { event.preventDefault(); runTool(tool); });
+    const form = el(`form-${tool}`);
+    form.addEventListener("submit", (event) => { event.preventDefault(); runTool(tool); });
+    const inputChanged = (event) => {
+      if (event.target.matches("input,textarea,select")) clearFieldError(event.target, tool);
+      updateResultProvenance(tool);
+    };
+    form.addEventListener("input", inputChanged);
+    form.addEventListener("change", inputChanged);
   }
   document.querySelectorAll(".tool-tab").forEach((tab) => {
     tab.addEventListener("click", () => selectTool(tab.dataset.tool));
@@ -454,7 +600,7 @@ function wireForms() {
   el("add-club").addEventListener("click", () => addClubRow());
   el("clip-platform").addEventListener("change", () => { state.preferences.platform = el("clip-platform").value; el("default-platform").value = state.preferences.platform; savePreferences(); });
   el("default-tool").addEventListener("change", () => { state.preferences.defaultTool = el("default-tool").value; savePreferences(); });
-  el("default-platform").addEventListener("change", () => { state.preferences.platform = el("default-platform").value; el("clip-platform").value = state.preferences.platform; savePreferences(); });
+  el("default-platform").addEventListener("change", () => { state.preferences.platform = el("default-platform").value; el("clip-platform").value = state.preferences.platform; savePreferences(); updateResultProvenance("clip"); });
   el("show-evidence").addEventListener("change", () => { state.preferences.showEvidence = el("show-evidence").checked; savePreferences(); renderStoredResult(state.active); });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && document.activeElement?.matches("input,textarea,select")) document.activeElement.blur();

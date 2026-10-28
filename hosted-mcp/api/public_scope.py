@@ -9,10 +9,11 @@ from inspect import iscoroutinefunction
 from urllib.parse import parse_qs
 
 from fastmcp import FastMCP
-from fastmcp.tools.tool import ToolResult
-from mcp.types import ListToolsRequest
+from fastmcp.tools import ToolResult
+from mcp.types import PaginatedRequestParams
 
 from public_results import PublicToolResult
+import security_wire
 
 PUBLIC_PATH = "/public/mcp"
 PUBLIC_NAMES = frozenset({
@@ -29,7 +30,7 @@ def _audit_without_commercial_link(result):
         raise RuntimeError("The public audit must return validated structured diagnostics.")
     payload = dict(result.structured_content)
     payload.pop("full_report_url", None)
-    return PublicToolResult(payload, is_error=bool(result.to_mcp_result().isError))
+    return PublicToolResult(payload, is_error=bool(result.to_mcp_result().is_error))
 
 
 def _public_audit_function(function):
@@ -78,9 +79,9 @@ async def build_public_registry(source):
         tool = await source.get_tool(name)
         if tool is None or tool.annotations is None:
             raise RuntimeError(f"Public tool {name} is unavailable.")
-        if (tool.annotations.readOnlyHint is not True
-                or tool.annotations.destructiveHint is not False
-                or not isinstance(tool.annotations.openWorldHint, bool)):
+        if (tool.annotations.read_only_hint is not True
+                or tool.annotations.destructive_hint is not False
+                or not isinstance(tool.annotations.open_world_hint, bool)):
             raise RuntimeError(f"Public tool {name} has an unreviewed annotation.")
         copied = tool.model_copy(deep=True)
         copied.meta = dict(copied.meta or {})
@@ -92,15 +93,15 @@ async def build_public_registry(source):
             copied.output_schema = _remove_report_link_schema(copied.output_schema)
         public.add_tool(copied)
 
-    @public._mcp_server.list_tools()
-    async def list_public_tools(request: ListToolsRequest):
-        result = await public._list_tools_mcp(request)
+    async def list_public_tools(ctx, params: PaginatedRequestParams | None):
+        result = await public._on_list_tools(ctx, params)
         if {tool.name for tool in result.tools} != PUBLIC_NAMES:
             raise RuntimeError("The public registry must contain exactly four tools.")
         for tool in result.tools:
             tool.meta = {**(tool.meta or {}), "securitySchemes": [{"type": "noauth"}]}
-            setattr(tool, "securitySchemes", [{"type": "noauth"}])
         return result
+
+    public._mcp_server.add_request_handler("tools/list", PaginatedRequestParams, list_public_tools)
 
     return public
 
@@ -186,6 +187,9 @@ class PublicOnlyApp:
                 return {"type": "http.disconnect"}
 
             receive = replay
+            request_id = security_wire.list_request(body)
+            if request_id is not None:
+                send = security_wire.wire_sender(send, request_id)
         # Even an authenticated developer request uses the anonymous public registry.
         public_scope = dict(scope, path="/mcp", raw_path=b"/mcp", query_string=b"",
                             headers=[(k, v) for k, v in scope.get("headers", [])
