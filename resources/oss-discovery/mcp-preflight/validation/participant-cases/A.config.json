@@ -1,0 +1,1 @@
+{"mcpServers":{"PILOT_NAME_SENTINEL":{"command":"python3","args":["-m","synthetic_server","PILOT_ARG_SENTINEL"],"env":{"EXAMPLE_TOKEN":"PILOT_ENV_SENTINEL"}}}}
