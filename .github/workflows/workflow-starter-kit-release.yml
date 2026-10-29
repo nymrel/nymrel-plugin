@@ -1,0 +1,94 @@
+name: Release workflow starter kit source preview
+
+on:
+  push:
+    branches: [main]
+    tags: ["workflow-starter-kit-v*"]
+    paths:
+      - "resources/workflow-starter-kit/**"
+      - "resources/releases/nymrel-workflow-starter-kit-*"
+      - "scripts/verify-starter-kit-release.py"
+      - "test/release/**"
+      - ".github/workflows/workflow-starter-kit-release.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "resources/workflow-starter-kit/**"
+      - "resources/releases/nymrel-workflow-starter-kit-*"
+      - "scripts/verify-starter-kit-release.py"
+      - "test/release/**"
+      - ".github/workflows/workflow-starter-kit-release.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: starter-kit-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Test archive rejection boundaries
+        run: python -m unittest discover -s test/release -p 'test_*.py'
+      - name: Verify retained candidate archive
+        if: github.ref_type != 'tag'
+        run: python scripts/verify-starter-kit-release.py --tag workflow-starter-kit-v0.1.0
+      - name: Verify integrated tagged source and exact archive
+        if: github.ref_type == 'tag'
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: python scripts/verify-starter-kit-release.py --tag "$RELEASE_TAG" --expected-sha "$RELEASE_SHA"
+      - name: Test offline renderer and CLI
+        working-directory: resources/workflow-starter-kit/skills/evidence-workspace
+        run: python -m unittest discover -s tests -p 'test_*.py'
+      - name: Validate and build the public synthetic example
+        working-directory: resources/workflow-starter-kit/skills/evidence-workspace
+        run: |
+          python scripts/evidence_workspace.py validate --input references/synthetic-example.json --json-errors
+          python scripts/evidence_workspace.py build --input references/synthetic-example.json --audience public --output example-output
+
+  publish:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/workflow-starter-kit-v')
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Recheck publication inputs
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: python3 scripts/verify-starter-kit-release.py --tag "$RELEASE_TAG" --expected-sha "$RELEASE_SHA"
+      - name: Publish the exact source-preview archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#workflow-starter-kit-v}"
+          archive="resources/releases/nymrel-workflow-starter-kit-${version}.zip"
+          gh release create "$RELEASE_TAG" "$archive" "$archive.sha256" \
+            --verify-tag --prerelease \
+            --title "Workflow Starter Kit ${version} — source preview" \
+            --notes-file resources/workflow-starter-kit/RELEASE.md
