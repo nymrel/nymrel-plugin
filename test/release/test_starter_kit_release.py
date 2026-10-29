@@ -22,7 +22,12 @@ class ReleaseBoundaryTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
-        shutil.copytree(ROOT / CHECK.KIT_PATH, self.root / CHECK.KIT_PATH)
+        # Copy tracked bytes only; an earlier test run may leave ignored caches.
+        for name in CHECK.git(ROOT, "ls-files", "-z", "--", str(CHECK.KIT_PATH)).split("\0"):
+            if name:
+                destination = self.root / name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(ROOT / name, destination)
         shutil.copytree(ROOT / "resources/releases", self.root / "resources/releases")
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
         subprocess.run(["git", "-C", str(self.root), "add", "resources"], check=True)
