@@ -1,0 +1,128 @@
+name: Publish Nymrel MCP Registry listing
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Full 40-character main commit SHA reviewed for this fixed listing
+        required: true
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - "server.json"
+      - "scripts/registry-release.py"
+      - "test/release/test_registry_release.py"
+      - ".github/workflows/publish-mcp-registry.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "server.json"
+      - "scripts/registry-release.py"
+      - "test/release/test_registry_release.py"
+      - ".github/workflows/publish-mcp-registry.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nymrel-mcp-registry-publication
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify fixed Registry listing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate fixed metadata
+        run: python3 scripts/registry-release.py source server.json
+      - name: Run release guard tests
+        run: python3 -m unittest discover -s test/release -p 'test_registry_release.py' -v
+
+  publish:
+    name: Publish exact Nymrel listing
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'nymrel/nymrel-plugin' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.expected_main_sha == github.sha
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out exact dispatched source without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Confirm exact current main source and approved metadata
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          python3 scripts/registry-release.py gate
+          git fetch --no-tags https://github.com/nymrel/nymrel-plugin.git refs/heads/main
+          test "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain -- server.json scripts/registry-release.py test/release/test_registry_release.py .github/workflows/publish-mcp-registry.yml)"
+          python3 scripts/registry-release.py source server.json
+      - name: Install cosign for publisher verification
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # pinned cosign installer
+        with:
+          cosign-release: v3.0.5
+      - name: Download and verify official MCP publisher v1.8.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset=mcp-publisher_linux_amd64.tar.gz
+          base=https://github.com/modelcontextprotocol/registry/releases/download/v1.8.6
+          curl --fail --location --silent --show-error "$base/$asset" --output "$asset"
+          curl --fail --location --silent --show-error "$base/$asset.sigstore.json" --output "$asset.sigstore.json"
+          echo '1fbe93fc0783c2394d8012c8d6e50a59e98cb2cc2d216264cc69f405d0e21340  mcp-publisher_linux_amd64.tar.gz' | sha256sum --check --status
+          cosign verify-blob \
+            --bundle "$asset.sigstore.json" \
+            --certificate-identity 'https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/v1.8.6' \
+            --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+            "$asset"
+          tar -xzf "$asset" mcp-publisher
+          chmod +x mcp-publisher
+      - name: Validate, authenticate with GitHub Actions OIDC, and publish
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          ./mcp-publisher validate server.json
+          ./mcp-publisher login github-oidc
+          python3 scripts/registry-release.py gate
+          python3 scripts/registry-release.py source server.json
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags https://github.com/nymrel/nymrel-plugin.git refs/heads/main
+          test "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain -- server.json scripts/registry-release.py test/release/test_registry_release.py .github/workflows/publish-mcp-registry.yml)"
+          ./mcp-publisher publish server.json
+      - name: Verify and retain the public Registry receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error \
+            'https://registry.modelcontextprotocol.io/v0.1/servers/io.github.nymrel%2Fnymrel/versions/1.4.0' \
+            --output registry-listing.json
+          python3 scripts/registry-release.py readback registry-listing.json
+      - name: Retain public listing receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nymrel-mcp-registry-1.4.0-${{ github.sha }}
+          path: registry-listing.json
+          if-no-files-found: error
+          retention-days: 7
