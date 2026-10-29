@@ -35,32 +35,48 @@ mcp-publisher validate server.json
 
 Validation must be rerun after any version, endpoint, repository, or metadata change. A local JSON-schema pass is supporting evidence only; the official publisher's schema + semantic validation is the release gate.
 
-## Authentication
+## Authentication and controlled workflow
 
-The operator can use the interactive publisher flow:
+The interactive `mcp-publisher login github` flow can fail to establish an
+organization namespace when the Registry cannot read the user's organization
+role. The Registry's response may require an approved GitHub Actions OIDC flow or
+a classic personal access token with `read:org`. This release route uses GitHub
+Actions OIDC and does not store or pass a personal token.
 
-```bash
-mcp-publisher login github
-```
+The manual-only workflow is `.github/workflows/publish-mcp-registry.yml`, named
+**Publish Nymrel MCP Registry listing**. Its only input is `expected_main_sha`,
+the full 40-character SHA of the reviewed `main` commit. It refuses publication
+unless the run is manually dispatched in `nymrel/nymrel-plugin` from `main`, the
+input equals the dispatched SHA, and fetched current `main` still equals that
+SHA. The read-only verification job runs first. The publication job alone gets
+`id-token: write`; repository-wide permissions remain `contents: read`.
+Read-only verification also runs for scoped pull requests and main pushes;
+those events cannot reach the publication job.
 
-Organization namespace publication requires the authenticated user to be an owner
-of `nymrel`. On 2026-10-01 UTC the current GitHub account's membership was active
-with role `admin`; this proves the organization role, not a Registry publisher
-login. GitHub authentication needs organization-role read access and no repository
-scopes. Complete the specific publisher authorization under the applicable
-operator grant. No CI workflow or `id-token: write` change is included.
+Registry OIDC grants authority across the GitHub owner's namespace rather than
+binding that authority to one repository, ref, or workflow. Preserve protected
+main and source review of this workflow. Its fixed listing guards restrict this
+publication path; they do not narrow the Registry token's owner-level authority.
 
-Do not create or embed a registry token in source. Do not use DNS/domain private keys unless a separate domain-namespace decision requires them.
+The workflow is pinned to MCP publisher `v1.8.6`. It verifies the official Linux
+amd64 release archive against its published SHA-256 and Sigstore identity, runs
+official `mcp-publisher validate`, obtains GitHub Actions OIDC via
+`mcp-publisher login github-oidc`, then rechecks the pinned metadata before
+publishing and reading back the exact Registry version. It accepts no arbitrary
+name, version, digest, URL, or artifact input. A future listing version requires
+a reviewed source change and updated guard/tests.
+
+Do not create or embed a Registry token in source. Do not use DNS/domain private
+keys unless a separate domain-namespace decision requires them.
 
 ## Publication
 
 Protected action — execute only under the current Nymrel release/publication gate:
 
-```bash
-mcp-publisher publish server.json
-```
-
-After publication, query the official Registry for the exact name/version and retain the returned public listing plus registry metadata as the publication receipt.
+The workflow validates the exact `server.json`, publishes it, queries the exact
+Registry name/version, and records the public listing identity and endpoint in
+the run summary and public JSON artifact as the publication receipt. Dispatch is intentionally not
+performed by this change.
 
 ## Post-publication acceptance
 
@@ -76,4 +92,6 @@ After publication, query the official Registry for the exact name/version and re
 
 ## Boundary
 
-This packet prepares publication metadata only. It does not authenticate to the Registry, publish the server, change DNS, create keys, change production MCP behavior, or imply that the source-only MCP Hub is hosted.
+This packet and workflow do not imply that publication has occurred. They do not
+change DNS, create keys, change production MCP behavior, or imply that the
+source-only MCP Hub is hosted.
