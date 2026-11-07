@@ -7,7 +7,7 @@ import sys
 import tempfile
 import unittest
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "verify_citations.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "resources" / "local-citation-check" / "scripts" / "verify_citations.py"
 ID = "0123456789abcdef0123456789abcdef"
 
 

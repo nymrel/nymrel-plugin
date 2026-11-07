@@ -1,5 +1,9 @@
 # Offline local citation check
 
+This independently authored companion is in the public repository under the
+workflow starter kit’s MIT license. It is separate from the immutable Workflow
+Starter Kit v0.1.0 archive and tag, and contains no private source code.
+
 This standalone Python 3.10+ utility checks explicitly selected local Markdown
 bytes and line citations. It does not change the Evidence Workspace input schema,
 retrieve URLs, crawl directories, authenticate sources, or establish whether a
@@ -23,11 +27,11 @@ a missing file, invalid range, absent quote, or symlink yields `unresolved`; a
 hash mismatch yields `changed`. Only matching bytes and a valid selected range
 (and quote, if supplied) yield `verified`. An empty quote is invalid.
 
-From this skill directory, select each permitted root-relative `.md` path
+From the repository root, select each permitted root-relative `.md` path
 explicitly; repeat `--allow` for multiple files:
 
 ```sh
-python scripts/verify_citations.py --root /path/to/source --input /path/to/private-manifest.json --allow notes/example.md
+python resources/local-citation-check/scripts/verify_citations.py --root /path/to/source --input /path/to/private-manifest.json --allow notes/example.md
 ```
 
 Manifest paths must match the allowlist exactly. Absolute paths, traversal,
@@ -45,8 +49,8 @@ other processes while checking. Symlink components are refused, but this tool
 is not a sandbox against a hostile process racing filesystem changes. Results
 are a point-in-time consistency check, not source authenticity or authority.
 
-Run the focused tests from this skill directory:
+Run the focused tests from the repository root:
 
 ```sh
-python -m unittest discover -s tests -p 'test_verify_citations.py'
+python -m unittest discover -s test/release -p 'test_verify_local_citations.py'
 ```
