@@ -69,6 +69,8 @@ remote assets, telemetry, automatic refresh, or network requests. Clickable
 source links navigate only when a person selects them. Output is a snapshot;
 it is not a live dashboard or an authoritative task system.
 
+For selected local Markdown citations, the separate [offline citation check](references/local-citation-check.md) verifies exact bytes and line ranges without changing the snapshot schema.
+
 ## Verify and interpret
 
 After changing executable resources, run:
