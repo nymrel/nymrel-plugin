@@ -29,12 +29,13 @@ const npmUserAgent = process.env.npm_config_user_agent ?? "";
 assert.match(npmUserAgent, /(?:^|\s)npm\/11\.19\.1(?:\s|$)/u, "npm 11.19.1 is required");
 
 const runtimeRequirements = read("hosted-mcp/requirements.txt").trim().split(/\r?\n/u);
-assert.deepEqual(runtimeRequirements, ["fastmcp==4.1.4", "requests==2.34.2"]);
+assert.deepEqual(runtimeRequirements, ["fastmcp==4.1.4", "httpx==0.28.1", "requests==2.34.2"]);
 
 const pyproject = read("hosted-mcp/pyproject.toml");
 for (const marker of [
   'requires-python = ">=3.13,<3.14"',
   '"fastmcp==4.1.4"',
+  '"httpx==0.28.1"',
   '"requests==2.34.2"',
   'target-version = "py313"',
 ]) {
