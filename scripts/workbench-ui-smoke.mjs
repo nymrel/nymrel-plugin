@@ -13,7 +13,7 @@ if (screenshotDirectory) await mkdir(screenshotDirectory, {recursive:true});
 // upstream main 814303a9ef52501e477a5ee10517b87debf4cf75.
 const acceptedClipPlatforms = new Set(["tiktok", "instagram_reels", "youtube_shorts", "x"]);
 for (const notice of [
-  "@modelcontextprotocol/ext-apps 2.0.3 (MIT)",
+  "@modelcontextprotocol/ext-apps 2.0.4 (MIT)",
   "@modelcontextprotocol/client 2.4.0 (Apache-2.0)",
   "@modelcontextprotocol/core 2.4.0 (Apache-2.0)",
   "zod 4.6.7 (MIT)",
