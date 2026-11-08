@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -518,21 +519,36 @@ class NoServerCredentialTests(unittest.TestCase):
 
 
 class RuntimeRequirementsTests(unittest.TestCase):
-    def test_remote_reader_http_client_is_a_declared_runtime_dependency(self):
-        """fastmcp 4.x ships httpx2, not httpx; the Remote reader imports httpx."""
-        requirements = (
-            Path(__file__).resolve().parents[1] / "requirements.txt"
-        ).read_text(encoding="utf-8")
+    DIRECT_DISTRIBUTIONS = {
+        "fastmcp": "fastmcp",
+        "httpx": "httpx",
+        "jsonschema": "jsonschema",
+        "mcp": "mcp",
+        "pydantic": "pydantic",
+        "requests": "requests",
+        "starlette": "starlette",
+    }
+
+    def test_api_modules_declare_every_direct_third_party_import(self):
+        """fastmcp 4.x drops transitive packages; declare direct imports."""
+        hosted_mcp = Path(__file__).resolve().parents[1]
+        requirements = (hosted_mcp / "requirements.txt").read_text(encoding="utf-8")
         declared = {
-            line.split("==", 1)[0].strip()
+            line.split("==", 1)[0].strip().lower()
             for line in requirements.splitlines()
             if line.strip()
         }
-        self.assertIn(
-            "httpx",
+        imported = set()
+        for path in (hosted_mcp / "api").glob("*.py"):
+            for line in path.read_text(encoding="utf-8").splitlines():
+                match = re.match(r"^(?:import|from)\s+([A-Za-z0-9_]+)", line)
+                if match and match.group(1) in self.DIRECT_DISTRIBUTIONS:
+                    imported.add(self.DIRECT_DISTRIBUTIONS[match.group(1)])
+        self.assertEqual(
+            imported,
             declared,
-            "api/nymrel_remote_read.py imports httpx; it must be a declared "
-            "runtime dependency so the serverless function can import the app",
+            "every direct third-party runtime import must be declared, and "
+            "every declared runtime dependency must be imported directly",
         )
 
 
