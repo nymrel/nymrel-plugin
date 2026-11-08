@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 
@@ -169,7 +169,10 @@ test("Python runtime and test dependencies are explicit", () => {
   const runtime = read("hosted-mcp/requirements.txt");
   const tests = read("hosted-mcp/requirements-test.txt");
   const pyproject = read("hosted-mcp/pyproject.toml");
-  assert.equal(runtime.trim().replace(/\r/gu, ""), "fastmcp==4.1.4\nhttpx==0.28.1\nrequests==2.34.2");
+  assert.equal(
+    runtime.trim().replace(/\r/gu, ""),
+    "fastmcp==4.1.4\nhttpx==0.28.1\njsonschema==4.26.0\nmcp==2.3.0\npydantic==2.14.3\nrequests==2.34.2\nstarlette==1.10.0",
+  );
   for (const dependency of [
     "pytest==9.2.0",
     "httpx==0.28.1",
@@ -180,6 +183,47 @@ test("Python runtime and test dependencies are explicit", () => {
     assert(tests.includes(dependency));
   }
   assert(pyproject.includes('requires-python = ">=3.13,<3.14"'));
+});
+
+const RUNTIME_DISTRIBUTIONS = {
+  fastmcp: "fastmcp",
+  httpx: "httpx",
+  jsonschema: "jsonschema",
+  mcp: "mcp",
+  pydantic: "pydantic",
+  requests: "requests",
+  starlette: "starlette",
+};
+
+function declaredRuntimeDistributions() {
+  const runtime = read("hosted-mcp/requirements.txt").trim().replace(/\r/gu, "");
+  return new Set(
+    runtime.split("\n").map((line) => line.split("==")[0].trim().toLowerCase()),
+  );
+}
+
+test("every direct third-party runtime import is declared", () => {
+  const declared = declaredRuntimeDistributions();
+  const apiDir = new URL("../hosted-mcp/api/", import.meta.url);
+  const imported = new Set();
+  for (const file of readdirSync(apiDir)) {
+    if (!file.endsWith(".py")) continue;
+    const source = readFileSync(new URL(file, apiDir), "utf8");
+    for (const match of source.matchAll(/^(?:import|from)\s+([a-zA-Z0-9_]+)/gmu)) {
+      const distribution = RUNTIME_DISTRIBUTIONS[match[1]];
+      if (distribution) imported.add(distribution);
+    }
+  }
+  assert.deepEqual([...imported].sort(), [...declared].sort());
+});
+
+test("runtime requirements and pyproject declarations agree", () => {
+  const pyproject = read("hosted-mcp/pyproject.toml");
+  const declared = [...declaredRuntimeDistributions()].sort();
+  const dependencies = [
+    ...pyproject.matchAll(/^\s+"([a-zA-Z0-9_.-]+)==[^"]+",$/gmu),
+  ].map((match) => match[1].toLowerCase());
+  assert.deepEqual([...new Set(dependencies)].sort(), declared);
 });
 
 test("the hosted function bundle excludes development-only files", () => {

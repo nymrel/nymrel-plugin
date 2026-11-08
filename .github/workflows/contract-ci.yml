@@ -126,3 +126,31 @@ jobs:
         run: >-
           python hosted-mcp/scripts/verify_live_contract.py https://mcp.nymrel.com
           --remote-read --issuer https://nymrel-remote-production.up.railway.app
+
+  hosted-mcp-runtime-only:
+    name: Runtime-only install / ubuntu-24.04
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Python 3.13
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Use the reviewed pip toolchain
+        run: python -m pip install --disable-pip-version-check --upgrade pip==26.2.1
+
+      - name: Install runtime requirements only
+        run: python -m pip install --disable-pip-version-check -r hosted-mcp/requirements.txt
+
+      - name: Verify runtime dependency consistency
+        run: python -m pip check
+
+      - name: Cold-start import and ASGI smoke
+        run: python hosted-mcp/scripts/runtime_only_smoke.py
