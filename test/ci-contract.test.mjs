@@ -140,6 +140,8 @@ test("Dependabot watches npm, Python, and workflow dependencies", () => {
   }
   assert(dependabot.includes("directory: /hosted-mcp"));
   assert.equal((dependabot.match(/interval: weekly/gu) ?? []).length, 3);
+  assert(dependabot.includes('dependency-name: "@types/node"'));
+  assert(dependabot.includes('update-types: ["version-update:semver-major"]'));
 });
 
 test("local package policy is fail closed", () => {
@@ -149,6 +151,11 @@ test("local package policy is fail closed", () => {
     "package.json must declare exactly one top-level engines object",
   );
   assert.equal(packageJson.engines.node, ">=22 <25");
+  assert.equal(
+    packageJson.devDependencies["@types/node"],
+    "24.13.3",
+    "@types/node must track a supported runtime major, not a newer one",
+  );
   assert.equal(packageJson.packageManager, "npm@11.19.1");
   assert.equal(packageJson.devEngines.packageManager.onFail, "error");
   assert.deepEqual(packageJson.allowScripts, { "esbuild@0.28.2": true });
