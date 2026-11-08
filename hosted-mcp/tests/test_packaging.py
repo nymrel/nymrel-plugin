@@ -11,6 +11,7 @@ import json
 import os
 import sys
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import httpx
@@ -514,6 +515,26 @@ class NoServerCredentialTests(unittest.TestCase):
             client.call("audit-website", {"url": "https://example.com"})
 
         self.assertNotIn("Authorization", seen["headers"])
+
+
+class RuntimeRequirementsTests(unittest.TestCase):
+    def test_remote_reader_http_client_is_a_declared_runtime_dependency(self):
+        """fastmcp 4.x ships httpx2, not httpx; the Remote reader imports httpx."""
+        requirements = (
+            Path(__file__).resolve().parents[1] / "requirements.txt"
+        ).read_text(encoding="utf-8")
+        declared = {
+            line.split("==", 1)[0].strip()
+            for line in requirements.splitlines()
+            if line.strip()
+        }
+        self.assertIn(
+            "httpx",
+            declared,
+            "api/nymrel_remote_read.py imports httpx; it must be a declared "
+            "runtime dependency so the serverless function can import the app",
+        )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

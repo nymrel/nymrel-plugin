@@ -5,6 +5,7 @@ description = "Nymrel's public MCP service and activation-held private handoff a
 requires-python = ">=3.13,<3.14"
 dependencies = [
   "fastmcp==4.1.4",
+  "httpx==0.28.1",
   "requests==2.34.2",
 ]
 
