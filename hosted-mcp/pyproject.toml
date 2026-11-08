@@ -4,7 +4,7 @@ version = "1.2.0"
 description = "Nymrel's public MCP service and activation-held private handoff adapter."
 requires-python = ">=3.13,<3.14"
 dependencies = [
-  "fastmcp==4.1.4",
+  "fastmcp==4.1.6",
   "httpx==0.28.1",
   "jsonschema==4.26.0",
   "mcp==2.3.0",
