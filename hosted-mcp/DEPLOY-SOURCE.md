@@ -1,24 +1,176 @@
 # This directory is the deploy source for mcp.nymrel.com
 
-Verified 2026-08-18 against the live server.
+Verified 2026-08-18 against the live server. Reconciled 2026-11-08 against
+current provider state and the reviewed `main`.
 
-`api/index.py` here removes five vendored tools and re-registers two, so the
-server publishes **four** tools:
+## Current release-route status (2026-11-08)
+
+This section supersedes every older release-route section below.
+
+- The Vercel project is `nymrel-mcp` (`prj_QwLEjytbPHmQiUM2crObafkzosoZ`) in
+  `jalens-projects-0ade4450` / `team_MkEJAArMiAM6dAEnF96D5GLE`; the canonical
+  alias is `mcp.nymrel.com`.
+- The alias serves `dpl_CxkHvNfZtSQgZ1cXBioCxYffkxQz`: READY, target
+  `production`, created 2026-11-08T22:01:03Z, at source commit
+  `239817c8bd683d723c461f61e184219833f1cf79` (merge of PR #80). Aliases are
+  `mcp.nymrel.com`, `nymrel-mcp.vercel.app`, and
+  `nymrel-mcp-jalens-projects-0ade4450.vercel.app`.
+- That deployment was produced by the sanctioned rail from a clean checkout at
+  the exact SHA: pre-deploy `repository-verify` and `workbench-ui-smoke` PASS;
+  raw-Git-blob payload attestation `providerSourceTreeMatchesGitSha=true` over
+  37 files (`payloadManifestSha256`
+  `51e3505d867fe2df5c98a988e736809a435626f06e206344d2e9b98d6af32276`);
+  `gitSource` and `source` are both null; alias promotion PASS with
+  `aliasVerified=true`; previous deployment
+  `dpl_5bY3CxAFQwAvHjYuZh2ptcvFUNNB` (`408a34e`) retained as the rollback
+  target; the live contract passed on the immutable URL and again on
+  `mcp.nymrel.com`. Receipt:
+  `portfolio-control/studio-comm/receipts/deployments/nymrel-mcp/20261108T215915565877Z-dpl_CxkHvNfZtSQgZ1cXBioCxYffkxQz.json`.
+- Reviewed `main` at this release is `239817c8bd683d723c461f61e184219833f1cf79`;
+  production now serves it. `408a34e` was the previous production source and is
+  an ancestor of it. PRs #78 (this document) and #79 (`@types/node` pin) are
+  not in `239817c`; they land after this release and require a later deploy to
+  be served.
+- First attempt, kept as history: `2069dda` staged
+  `dpl_GMa73N6kcXHcqn9VaPtFxKi7uZQh` (READY, 37/37 byte attestation) but failed
+  closed because `fastmcp==4.1.4` depends on `fastmcp-slim`, which ships
+  `httpx2` and no longer installs `httpx`; `api/nymrel_remote_read.py` imports
+  `httpx`, so `GET /` returned HTTP 500 and the alias was never promoted. PR
+  #80 declared `httpx==0.28.1` and added a packaging regression test; the
+  release was rerun at `239817c`.
+- The 2026-10-03 rail run produced a PASS receipt for
+  `dpl_AZDphk2nkXEUFbmBpkpmRjoHrL53` at source
+  `014267c140f8ebdfbcdea5078b4f3e4e27bf3224`: alias promotion PASS,
+  provider source-tree attestation `true` by `api-file-content` over 33 files
+  (`payloadManifestSha256`
+  `5685a7e0a92f8b87ee2e12291909fd9801d4f6ee5b0b8ac669368f016f974e90`),
+  `gitSource` null, `lambdaSourceVerified` false, and the live contract PASS.
+  An earlier attempt at 09:42 failed pre-stage with
+  `ProviderSourceError: matching .vercel project binding is missing or unreadable`.
+  Receipts: `portfolio-control/studio-comm/receipts/deployments/nymrel-mcp/`
+  (`latest.json`, `20261003T095617746346Z-dpl_AZDphk2nkXEUFbmBpkpmRjoHrL53.json`,
+  `prestage/20261003T094210895735Z.json`).
+- On 2026-11-08 a fresh read-only live-contract check passed against
+  `https://mcp.nymrel.com` with
+  `--public-results --remote-read --issuer https://nymrel-remote-production.up.railway.app`:
+  four public tools, seven OAuth-protected remote-read tools, exact output
+  schemas, OAuth resource/issuer/scopes, and "private read requires caller
+  OAuth". The alias also answers `GET /` with 200 and the discovery document,
+  and `initialize` with 200.
+- The two private-handoff tools remain hidden and are not in the production
+  catalog; both Workbench UI feature flags remain off.
+
+**What is attested and what is not.** The alias serves a READY deployment
+produced by the sanctioned rail at the exact reviewed `main` `239817c`, with
+byte-exact uploaded-source attestation over 37 files and a PASS live contract on
+both the immutable URL and the alias. What is **not** attested is an immutable
+Git-integration binding (`gitSource`/`source` are null) and the provider-built
+Lambda artifact (`lambdaSourceVerified=false`); provider byte attestation
+proves the uploaded source bytes, not that the built artifact matches them. Any
+later `main` advance (including #78/#79) requires another sanctioned rail run
+before it is served.
+
+## Historical release-route status (2026-10-01) — superseded above
+
+This section recorded the 2026-10-01 rollback. It is kept for history and is
+superseded by the 2026-11-08 section; it does not describe current production.
+
+- The Vercel project is `nymrel-mcp` (`prj_QwLEjytbPHmQiUM2crObafkzosoZ`) in
+  `jalens-projects-0ade4450`; its production alias is `mcp.nymrel.com`.
+- Immediately before the 2026-10-01 release, production was READY at
+  `dpl_86j9zWEggbpQDj7R1tfRvWFVk7FA`, source commit
+  `4a70be6e9c6eab8ee160c97061959c851c243588`. PR #40 is merged to `main` at
+  `46e71d6e949c9f290a739157f571edc8fb14628e`, and `origin/main` matches.
+- The authorized source-only release created
+  `dpl_9RvC5DhkdCVjt8VHEb1ByJgRb3PX`; Vercel inspection reports READY, target
+  `production`, with `mcp.nymrel.com` among its aliases. Its provider
+  `gitSource` is null, so the rail cannot attest the deployed SHA from Vercel.
+  The rail's provider-mutation receipt is FAIL and its configured post-deploy
+  command is NOT_RUN. The previous production deployment above remains the
+  rollback target.
+- A separate read-only contract diagnostic against `https://mcp.nymrel.com`
+  passed for the four public tools, seven OAuth-protected remote-read tools,
+  schemas, auth metadata, and validation cases. This diagnostic does not
+  supply immutable provider `gitSource` SHA provenance. Its receipt is in
+  `portfolio-control/studio-comm/receipts/deployments/nymrel-mcp/`.
+- A later read-only comparison of the temporary deployment's provider `src`
+  tree found the same 33 paths as `git ls-files` in the clean Windows checkout
+  at `46e71d6`; provider SHA-256 hashes matched those checkout bytes. An
+  independent raw Git-blob comparison then found **0/33 exact blob matches**;
+  all 33 matched only after applying LF-to-CRLF checkout conversion. This is
+  checkout-byte equivalence only, not proof of exact commit blob bytes or
+  immutable `gitSource` provenance. The post-hoc line-ending transform is not
+  accepted as release proof. See
+  `portfolio-control/studio-comm/receipts/deployments/nymrel-mcp/provider-byte-diagnostic-20261001.json`
+  and its correction receipt.
+- On 2026-10-01 the authorized Vercel rollback restored
+  `dpl_86j9zWEggbpQDj7R1tfRvWFVk7FA` as the production target and returned
+  `mcp.nymrel.com` to that deployment. A second contract verification after
+  rollback passed the same four-public/seven-Remote catalog, schema, read-only,
+  and OAuth checks. The rollback result is recorded separately from the failed
+  source-only release and its standalone diagnostic.
+- A read-only `GET /v9/projects/prj_QwLEjytbPHmQiUM2crObafkzosoZ` returned no
+  project `link` (null/absent). Historical production metadata proves the
+  project previously received GitHub deployments from `nymrel/nymrel-plugin`,
+  but the current project response does not establish a usable provider Git
+  binding for an exact-SHA deployment. The CLI offers `vercel git connect` and
+  `disconnect`, not a read-only binding command. Do not create or alter a Git
+  integration, identity, or OAuth permission as part of this source-only lane.
+- The exact-commit preview `dpl_5AcC1uSUgXbyePPfpwiY3XrhdohS` is READY at
+  `46e71d6e949c9f290a739157f571edc8fb14628e`, but has no production target or
+  production aliases. Preview acceptance does not establish production.
+- The current production MCP catalog has four public tools and seven
+  OAuth-protected remote-read tools. The remote-read issuer is
+  `https://nymrel-remote-production.up.railway.app`; the two Workbench UI
+  feature flags remain off. This lane did not change OAuth or either flag.
+- The control-plane manifest now has a local `nymrel-mcp` entry binding this
+  checkout to the verified project ID and team slug; that control-plane change
+  remains local and uncommitted. The sanctioned rail now
+  passes `--scope jalens-projects-0ade4450` to deploy and inspection commands;
+  its unit tests cover both paths. These edits are not integrated yet.
+- The manifest's pre-deploy checks use the CI-pinned `corepack npm@11.19.1`
+  for repository verification and Workbench UI smoke tests; its post-deploy
+  command checks public output schemas plus the existing remote-read catalog
+  and OAuth metadata using the production issuer. UI activation checks are
+  omitted because both UI flags remain off. The configured command passed as
+  an independent read-only diagnostic after the rail stopped at provider
+  source attestation; it did not turn the rail transaction green.
+
+**As of 2026-10-01, the production alias was restored to the previous READY
+deployment.** That rollback state is historical; later deployments replaced
+it (see the 2026-11-08 section). The source-only CLI deployment for `46e71d6`
+was rolled back because Vercel supplied
+no immutable provider `gitSource` SHA and the sanctioned rail correctly failed
+closed. The separate live diagnostic passed on that temporary deployment; it
+does not make the rail transaction green. The current Git binding is not
+verified, so an existing provider route to build exact `46e71d6` without a
+connection change has not been established. No OAuth, identity, Git
+integration, DNS, or UI-flag setting changed; both UI flags remain off.
+
+## Historical public catalog snapshot (2026-08-18)
+
+At this snapshot, `api/index.py` removed five vendored tools and re-registered
+two, so the server published **four public tools**:
 
     nymrel_audit_website · nymrel_golf_bag_gap · nymrel_find_domain · nymrel_social_clip_score
 
-That is exactly what `tools/list` returns in production.
+That was exactly what `tools/list` returned in production at the time. The
+current production catalog is four public tools plus seven OAuth-protected
+remote-read tools, as recorded above.
 
 ## Private handoff code is activation-held
 
 `api/nymrel_private_handoff.py` and the generic builder in `api/index.py`
-prepare two OAuth-gated tools behind the same `@Nymrel` tag. They are hidden by
-default and are not part of the current ChatGPT submission, review cases, or
-production contract. The legacy `nymrel_submit_studio_brief` tool remains
-removed and must never be used as a substitute.
+prepare two separate private-handoff tools behind the same `@Nymrel` tag.
+Those two tools remain hidden and are not part of the current production
+catalog. This does not describe the seven active remote-read tools above. The
+legacy `nymrel_submit_studio_brief` tool remains removed and must never be used
+as a substitute.
 
-Do not turn on `NYMREL_PRIVATE_HANDOFF_MCP_ENABLED`, configure an OAuth issuer,
-or accept customer content as part of an ordinary MCP deploy. Activation is a
+Do not turn on `NYMREL_PRIVATE_HANDOFF_MCP_ENABLED`, configure private-handoff
+OAuth, or accept customer content as part of an ordinary MCP deploy. The
+private-handoff issuer is separate from the already-active remote-read issuer.
+Activation is a
 separate protected release requiring approved client consent and project
 allowlists, retention/custody approval, a Nymrel-owned AuthKit environment,
 dedicated Nymrel REST secrets and storage, exact provider-subject-to-principal
@@ -40,7 +192,11 @@ three tools back on the public connector that cannot serve a request:
 Its `proof-tools-list.json` is a receipt from when the server did publish seven
 — it is history, not the current contract.
 
-## How to release (2026-08-17: this surface is on the studio rail now)
+## Historical rail invocation (2026-08-17)
+
+The following command and verification recipe records the original rail
+adoption. It is superseded by the scoped, exact-SHA route in the current
+release-status section above; do not copy this older invocation.
 
 The project link lives in this directory, but do not run `vercel --prod` by
 hand — this connector has a manifest entry (`nymrel-mcp` in
@@ -66,7 +222,11 @@ hosted runtime flattened a `typing.TypedDict` to a bare object, and the
 platform rewrite hid the discovery route. Local tests cannot see runtime skew;
 only a probe of served bytes can.
 
-## What actually deploys this: a push to `main` (verified 2026-08-18)
+## Historical Git-integration behavior (verified 2026-08-18)
+
+The next deployment-history notes describe the state observed on 2026-08-18,
+not the current sanctioned release path. The current route is the explicit
+scoped rail documented at the top of this file.
 
 The Vercel project has the GitHub integration wired (`githubDeployment: 1`,
 `gitRootDirectory: hosted-mcp`). Pushing `main` to `nymrel/nymrel-plugin` is
