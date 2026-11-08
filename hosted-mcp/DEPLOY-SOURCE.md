@@ -10,27 +10,34 @@ This section supersedes every older release-route section below.
 - The Vercel project is `nymrel-mcp` (`prj_QwLEjytbPHmQiUM2crObafkzosoZ`) in
   `jalens-projects-0ade4450` / `team_MkEJAArMiAM6dAEnF96D5GLE`; the canonical
   alias is `mcp.nymrel.com`.
-- The alias currently serves `dpl_5bY3CxAFQwAvHjYuZh2ptcvFUNNB`: READY, target
-  `production`, created 2026-10-11T21:44:13Z. Aliases are `mcp.nymrel.com`,
-  `nymrel-mcp.vercel.app`, and
+- The alias serves `dpl_CxkHvNfZtSQgZ1cXBioCxYffkxQz`: READY, target
+  `production`, created 2026-11-08T22:01:03Z, at source commit
+  `239817c8bd683d723c461f61e184219833f1cf79` (merge of PR #80). Aliases are
+  `mcp.nymrel.com`, `nymrel-mcp.vercel.app`, and
   `nymrel-mcp-jalens-projects-0ade4450.vercel.app`.
-- Provider deployment metadata reports `githubCommitSha`
-  `408a34e7f8f2495c3ce9bf1e30f98fd98de1f420` on `nymrel/nymrel-plugin` `main`
-  (merge of PR #48), with `studioSourceManifestSha256`
-  `ff9a1b7c4c578df22bec7684f5316988a6959a15d9701cbd6eeac6e446758439` and
-  previous deployment `dpl_8wbAQrW9UHNNyZTnf9MWqjsxKkNA`. **`gitSource` and
-  `source` are both null**, so Vercel does not attest an immutable build
-  source; the commit SHA is provider-reported metadata, not provenance.
-- Reviewed `main` at reconciliation is `2069dda7d6c585fa4f77f18d742d805cacef37b6`
-  (merge of PR #75). `408a34e` is an ancestor of it
-  (`git merge-base --is-ancestor` exits 0), so the provider-reported commit is
-  **behind** reviewed `main`; deployed source identity remains unverified.
-- `hosted-mcp/` between `408a34e` and `2069dda` differs by 15 files,
-  +827/-66: `README.md`, the generated `api/assets/workbench.html`,
-  `api/index.py`, `api/nymrel_public_mcp_server.py`,
-  `api/nymrel_remote_read.py`, `api/public_results.py`, `api/public_scope.py`,
-  the new `api/security_wire.py`, `pyproject.toml`, `requirements*.txt`, and
-  four test modules. Whether production contains this delta is unverified.
+- That deployment was produced by the sanctioned rail from a clean checkout at
+  the exact SHA: pre-deploy `repository-verify` and `workbench-ui-smoke` PASS;
+  raw-Git-blob payload attestation `providerSourceTreeMatchesGitSha=true` over
+  37 files (`payloadManifestSha256`
+  `51e3505d867fe2df5c98a988e736809a435626f06e206344d2e9b98d6af32276`);
+  `gitSource` and `source` are both null; alias promotion PASS with
+  `aliasVerified=true`; previous deployment
+  `dpl_5bY3CxAFQwAvHjYuZh2ptcvFUNNB` (`408a34e`) retained as the rollback
+  target; the live contract passed on the immutable URL and again on
+  `mcp.nymrel.com`. Receipt:
+  `portfolio-control/studio-comm/receipts/deployments/nymrel-mcp/20261108T215915565877Z-dpl_CxkHvNfZtSQgZ1cXBioCxYffkxQz.json`.
+- Reviewed `main` at this release is `239817c8bd683d723c461f61e184219833f1cf79`;
+  production now serves it. `408a34e` was the previous production source and is
+  an ancestor of it. PRs #78 (this document) and #79 (`@types/node` pin) are
+  not in `239817c`; they land after this release and require a later deploy to
+  be served.
+- First attempt, kept as history: `2069dda` staged
+  `dpl_GMa73N6kcXHcqn9VaPtFxKi7uZQh` (READY, 37/37 byte attestation) but failed
+  closed because `fastmcp==4.1.4` depends on `fastmcp-slim`, which ships
+  `httpx2` and no longer installs `httpx`; `api/nymrel_remote_read.py` imports
+  `httpx`, so `GET /` returned HTTP 500 and the alias was never promoted. PR
+  #80 declared `httpx==0.28.1` and added a packaging regression test; the
+  release was rerun at `239817c`.
 - The 2026-10-03 rail run produced a PASS receipt for
   `dpl_AZDphk2nkXEUFbmBpkpmRjoHrL53` at source
   `014267c140f8ebdfbcdea5078b4f3e4e27bf3224`: alias promotion PASS,
@@ -48,19 +55,20 @@ This section supersedes every older release-route section below.
   `--public-results --remote-read --issuer https://nymrel-remote-production.up.railway.app`:
   four public tools, seven OAuth-protected remote-read tools, exact output
   schemas, OAuth resource/issuer/scopes, and "private read requires caller
-  OAuth". This proves the **served contract only**, not source identity.
+  OAuth". The alias also answers `GET /` with 200 and the discovery document,
+  and `initialize` with 200.
 - The two private-handoff tools remain hidden and are not in the production
   catalog; both Workbench UI feature flags remain off.
 
-**What is attested and what is not.** The alias serves a READY production
-deployment whose provider-reported commit is an ancestor of reviewed `main`;
-the served contract passes. What is **not** attested is an immutable
-provider-to-source binding (`gitSource` is null on both the 2026-10-03 and
-2026-10-11 deployments), and whether production contains the reviewed `main`
-delta is unverified. Closing that gap requires a clean-checkout run of the
-sanctioned rail
-(`python portfolio-control/tools/studio-deploy.py nymrel-mcp --yes`) that
-records an attested source deployment; do not hand-run `vercel --prod`.
+**What is attested and what is not.** The alias serves a READY deployment
+produced by the sanctioned rail at the exact reviewed `main` `239817c`, with
+byte-exact uploaded-source attestation over 37 files and a PASS live contract on
+both the immutable URL and the alias. What is **not** attested is an immutable
+Git-integration binding (`gitSource`/`source` are null) and the provider-built
+Lambda artifact (`lambdaSourceVerified=false`); provider byte attestation
+proves the uploaded source bytes, not that the built artifact matches them. Any
+later `main` advance (including #78/#79) requires another sanctioned rail run
+before it is served.
 
 ## Historical release-route status (2026-10-01) — superseded above
 
