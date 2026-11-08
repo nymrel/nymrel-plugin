@@ -1,5 +1,13 @@
 # Nymrel universal plugin
 
+## Start with one workflow
+
+- **Try a supplied setup problem offline:** [MCP Preflight](resources/oss-discovery/mcp-preflight/README.md) turns a synthetic configuration and log into a readable report and structured JSON. Python 3.10+ is the only requirement. It connects to no service and needs no account or credentials.
+- **Reuse an agent workflow:** the [Workflow Starter Kit](resources/workflow-starter-kit/README.md) provides standalone skills and synthetic examples.
+- **Use hosted tools:** follow the host setup below only after current service availability and that host's acceptance are confirmed.
+
+Preflight is a validation prototype, not a live connection test. Its [five-case pilot](resources/oss-discovery/mcp-preflight/validation/README.md) keeps human comprehension and repeat use separate from automated checks; those human outcomes remain unmeasured.
+
 ## Public workflow resources
 
 The [Nymrel Workflow Starter Kit](resources/workflow-starter-kit/README.md)
@@ -17,7 +25,7 @@ Claude package and one hosted MCP service.
 
 ## Tag Nymrel
 
-After the plugin is installed, start a new conversation and tag `@Nymrel`:
+After installation and current host acceptance, start a new conversation and tag `@Nymrel`:
 
 - `@Nymrel turn this idea into a build brief.`
 - `@Nymrel audit https://example.com and prioritize the fixes.`
@@ -28,11 +36,12 @@ without pretending it was sent. The `nymrel-website-audit` skill and hosted MCP
 tools handle the production read-only workflows. A future authenticated handoff
 can submit approved briefs and return client status through the same tag.
 
-The operator connection already works in ChatGPT and Codex. Public availability
-still requires OpenAI directory review and publication; a local installation or
-developer-mode connection is not public distribution.
+Historical operator acceptance in ChatGPT and Codex does not establish current
+service availability. Public availability requires OpenAI directory review and
+publication; a local installation or developer-mode connection is not public
+distribution. Offline resources above do not depend on that connection.
 
-## Live bindings
+## Host bindings
 
 - ChatGPT app: the `.app.json` file binds the installed plugin to the registered Nymrel app.
 - Portable plugin: `plugin.json` and `mcp.json` declare Agent Plugins 1.0 metadata and the existing hosted connection; both skills and the existing app binding are preserved.
@@ -89,7 +98,11 @@ For stdio-only development hosts, build first and launch `node dist/server.js --
 - `nymrel_golf_bag_gap`
 - `nymrel_social_clip_score`
 
-All four tools are live, credential-free, read-only, and backed by the production Nymrel API. Trade evaluation, permit lookup, and studio intake remain outside the public catalog until their provider or authorization contracts are production-ready.
+These four credential-free, read-only tools are implemented against the Nymrel API.
+Their current live availability and acceptance in each host require separate
+evidence; repository source is not that evidence. Trade evaluation, permit lookup,
+and studio intake remain outside the public catalog until their provider or
+authorization contracts are production-ready.
 
 The hosted source also includes an activation-held private-handoff adapter for
 approved clients. It keeps `@Nymrel` as the invocation surface while requiring
