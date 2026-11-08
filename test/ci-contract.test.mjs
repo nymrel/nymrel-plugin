@@ -168,7 +168,7 @@ test("Python runtime and test dependencies are explicit", () => {
     "httpx==0.28.1",
     "pip-audit==2.10.1",
     "PyJWT[crypto]==2.15.1",
-    "ruff==0.17.2",
+    "ruff==0.17.3",
   ]) {
     assert(tests.includes(dependency));
   }
