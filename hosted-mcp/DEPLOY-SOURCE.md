@@ -23,14 +23,14 @@ This section supersedes every older release-route section below.
   source; the commit SHA is provider-reported metadata, not provenance.
 - Reviewed `main` at reconciliation is `2069dda7d6c585fa4f77f18d742d805cacef37b6`
   (merge of PR #75). `408a34e` is an ancestor of it
-  (`git merge-base --is-ancestor` exits 0), so production is **behind** the
-  reviewed source, not equal to it.
+  (`git merge-base --is-ancestor` exits 0), so the provider-reported commit is
+  **behind** reviewed `main`; deployed source identity remains unverified.
 - `hosted-mcp/` between `408a34e` and `2069dda` differs by 15 files,
   +827/-66: `README.md`, the generated `api/assets/workbench.html`,
   `api/index.py`, `api/nymrel_public_mcp_server.py`,
   `api/nymrel_remote_read.py`, `api/public_results.py`, `api/public_scope.py`,
   the new `api/security_wire.py`, `pyproject.toml`, `requirements*.txt`, and
-  five test modules. Production therefore does not serve the reviewed `main`.
+  four test modules. Whether production contains this delta is unverified.
 - The 2026-10-03 rail run produced a PASS receipt for
   `dpl_AZDphk2nkXEUFbmBpkpmRjoHrL53` at source
   `014267c140f8ebdfbcdea5078b4f3e4e27bf3224`: alias promotion PASS,
@@ -56,8 +56,9 @@ This section supersedes every older release-route section below.
 deployment whose provider-reported commit is an ancestor of reviewed `main`;
 the served contract passes. What is **not** attested is an immutable
 provider-to-source binding (`gitSource` is null on both the 2026-10-03 and
-2026-10-11 deployments), and production does not contain the reviewed `main`
-delta. Closing that gap requires a clean-checkout run of the sanctioned rail
+2026-10-11 deployments), and whether production contains the reviewed `main`
+delta is unverified. Closing that gap requires a clean-checkout run of the
+sanctioned rail
 (`python portfolio-control/tools/studio-deploy.py nymrel-mcp --yes`) that
 records an attested source deployment; do not hand-run `vercel --prod`.
 
