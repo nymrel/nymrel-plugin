@@ -52,7 +52,10 @@ jobs:
       - name: Install locked dependencies
         run: corepack npm@11.19.1 ci
 
-      - name: Verify TypeScript, local MCP, and CI contracts
+      - name: Require a clean distribution directory before compilation
+        run: node -e "if (require('node:fs').existsSync('dist')) throw new Error('Unexpected dist before compilation')"
+
+      - name: Compile from source, test CI contracts, and exercise the built MCP server
         run: corepack npm@11.19.1 run verify
 
       - name: Install the audit app test browser
@@ -62,9 +65,6 @@ jobs:
       - name: Verify hosted apps with a synthetic MCP host
         if: matrix.os == 'ubuntu-24.04' && matrix.node == '24.20.0'
         run: corepack npm@11.19.1 run test:ui
-
-      - name: Verify generated distribution is committed
-        run: git diff --exit-code -- dist
 
       - name: Audit the complete dependency graph
         run: corepack npm@11.19.1 audit --audit-level=high

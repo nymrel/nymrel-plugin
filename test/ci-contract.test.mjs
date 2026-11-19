@@ -14,7 +14,7 @@ const vercel = JSON.parse(read("hosted-mcp/vercel.json"));
 const checkoutSha = "3d3c42e5aac5ba805825da76410c181273ba90b1";
 const setupNodeSha = "949feb2413d6458794dcd2491c4babbbce0c15c1";
 const setupPythonSha = "6d4fd22b20465ccc0f7354476588e8df7c9ca0e0";
-const codeqlSha = "9b3254085494b55a0f7c4c2b3d2d52cc712ce370";
+const codeqlSha = "33d7b85da1a04171e211befe2c739303b9a4c066";
 
 function assertedActionPins(workflow) {
   const uses = [...workflow.matchAll(/^\s*-?\s*uses:\s*([^\s#]+)/gmu)].map((match) => match[1]);
