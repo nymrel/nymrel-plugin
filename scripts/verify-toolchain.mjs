@@ -30,7 +30,7 @@ assert.match(npmUserAgent, /(?:^|\s)npm\/11\.19\.1(?:\s|$)/u, "npm 11.19.1 is re
 
 const runtimeRequirements = read("hosted-mcp/requirements.txt").trim().split(/\r?\n/u);
 assert.deepEqual(runtimeRequirements, [
-  "fastmcp==4.1.4",
+  "fastmcp==4.2.0",
   "httpx==0.28.1",
   "jsonschema==4.26.0",
   "mcp==2.3.0",
@@ -42,7 +42,7 @@ assert.deepEqual(runtimeRequirements, [
 const pyproject = read("hosted-mcp/pyproject.toml");
 for (const marker of [
   'requires-python = ">=3.13,<3.14"',
-  '"fastmcp==4.1.4"',
+  '"fastmcp==4.2.0"',
   '"httpx==0.28.1"',
   '"jsonschema==4.26.0"',
   '"mcp==2.3.0"',
