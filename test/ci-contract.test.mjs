@@ -153,7 +153,7 @@ test("local package policy is fail closed", () => {
   assert.equal(packageJson.engines.node, ">=22 <25");
   assert.equal(
     packageJson.devDependencies["@types/node"],
-    "24.13.3",
+    "24.19.2",
     "@types/node must track a supported runtime major, not a newer one",
   );
   assert.equal(packageJson.packageManager, "npm@11.19.1");
